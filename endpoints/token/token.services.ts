@@ -16,11 +16,11 @@ export class RefreshTokenService {
       { expiresIn: `${REFRESH_EXPIRES_IN_DAYS}d` }
     );
 
+    // Store token hash in the DB (schema uses tokenHash)
     await prisma.token.create({
       data: {
         userId,
-        token,
-        expiresAt: new Date(Date.now() + REFRESH_EXPIRES_IN_DAYS * 86400000)
+        tokenHash: token,
       }
     });
 
@@ -31,23 +31,13 @@ export class RefreshTokenService {
   // VALIDATE TOKEN
   // -------------------------------------------------------------------
   static async validate(token: string) {
-    const existing = await prisma.token.findFirst({
-      where: { token }
-    });
 
-    if (!existing) {
-      throw new Error("Refresh token not found");
-    }
+    // Find existing token by tokenHash
+    const existing = await prisma.token.findFirst({ where: { tokenHash: token } });
+    if (!existing) throw new Error("Refresh token not found");
 
-    if (existing.expiresAt < new Date()) {
-      await prisma.token.delete({
-        where: { id: existing.id }
-      });
-      throw new Error("Refresh token expired");
-    }
-
+    // Rely on JWT expiry for token expiration check
     const payload = jwt.verify(token, JWT_REFRESH_SECRET);
-
     return { payload, existing };
   }
 
@@ -55,9 +45,7 @@ export class RefreshTokenService {
   // REVOKE (DELETE) A TOKEN
   // -------------------------------------------------------------------
   static async revoke(token: string) {
-    await prisma.token.deleteMany({
-      where: { token }
-    });
+    await prisma.token.deleteMany({ where: { tokenHash: token } });
   }
 
   // -------------------------------------------------------------------

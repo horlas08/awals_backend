@@ -82,15 +82,19 @@ export class AuthController {
         phone: ph || undefined,
         authChannel,
       });
-      await AuthService.register(res, {
+
+      // Build payload conditionally to avoid passing `undefined` as a union-typed property
+      const payload: any = {
         firstName: String(firstName).trim(),
         lastName: String(lastName).trim(),
         birthday: String(birthday).trim(),
         password: String(password).trim(),
-        email: em || undefined,
-        phone: ph || undefined,
         authChannel: String(authChannel) as any,
-      });
+      };
+      if (em) payload.email = em;
+      if (ph) payload.phone = ph;
+
+      await AuthService.register(res, payload);
     } catch (err: any) {
       console.error('[AuthController.register] error:', err?.message || err);
       return response({ msg: err.message, res, code: 400, success: false })
