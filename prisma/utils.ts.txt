@@ -1,0 +1,139 @@
+import type { TModel } from "../constants/models.js";
+import type { PrismaClient } from "../generated/prisma/index.js";
+import type { PrismaClientOptions } from "../generated/prisma/runtime/client.js";
+import prisma from "./client.js";
+import type { IPrisma } from "./types.js";
+
+const create = async ({ model_name, data }: { model_name: TModel, data: any }) => {
+    const data_saved = await prisma?.[model_name]?.create({
+        data
+    })
+
+    return data_saved;
+}
+
+const find_by_id = async ({ model_name, id }: { model_name: TModel, id: string | number }) => {
+    const item = await prisma?.[model_name].findUnique({
+        where: { id: Number(id) }
+    });
+
+    return item;
+}
+
+const find_by_keys = async ({ model_name, keys_values_object }: { model_name: TModel, keys_values_object: any }) => {
+    const items = await prisma?.[model_name].findUnique({
+        where: { ...keys_values_object }
+    });
+
+    return items;
+}
+
+const update_by_keys = async ({ model_name, keys_values_object, data }: { model_name: TModel, data: any, keys_values_object: any }) => {
+    const items = await prisma?.[model_name].update({
+        where: { ...keys_values_object }, data
+    });
+
+    return items;
+}
+
+const get_all = async ({ model_name }: { model_name: TModel }) => {
+    const items = await prisma?.[model_name]?.findMany({});
+
+    return items;
+}
+
+const find_all_by_id = async ({ model_name, id }: { model_name: TModel, id: string | number }) => {
+    const items = await prisma?.[model_name].findMany({
+        where: { id: Number(id) }
+    });
+
+    return items;
+}
+
+const find_all_by_keys = async ({ model_name, keys_values_object }: { model_name: TModel, keys_values_object: any }) => {
+    const items = await prisma?.[model_name].findMany({
+        where: { ...keys_values_object }
+    });
+
+    return items;
+}
+
+const find_all_by_key = async ({ model_name, key, value }: { model_name: TModel, key: string, value: any }) => {
+    let items = await prisma?.[model_name].findMany({
+        where: { [key]: value }
+    });
+
+    return items;
+}
+
+const update_all_by_key = async ({ model_name, key, value, data }: { model_name: TModel, key: string, value: any, data: any }) => {
+    const updated_items = await prisma?.[model_name].updateMany({
+        where: { [key]: value }, data
+    })
+
+    return updated_items;
+}
+
+const update_by_id = async ({ model_name, id, data }: { model_name: TModel, id: string | number, data: any }) => {
+    const updated_item = await prisma?.[model_name].update({
+        where: { id: Number(id) }, data
+    });
+
+    return updated_item;
+}
+
+const delete_by_id = async ({ model_name, id }: { model_name: TModel, id: string | number }) => {
+    const deleted_item = await prisma?.[model_name].delete({
+        where: { id: Number(id) }
+    });
+
+    return deleted_item;
+}
+
+const find_by_key = async ({ model_name, key, value }: { model_name: TModel, key: string, value: any }) => {
+    let item = await prisma?.[model_name]?.findUnique({ where: { [key]: value } })
+    return item
+}
+
+const find_by_email = async ({ model_name, value }: { model_name: TModel, value: string }) => {
+    let item = await prisma?.[model_name]?.findUnique({ where: { 'email': value } })
+    return item
+}
+
+const update_by_key = async ({ model_name, key, value, data }: { model_name: TModel, key: string, value: any, data: any }) => {
+    let updated_item = await prisma?.[model_name].update({
+        where: { [key]: value }, data
+    });
+
+    return updated_item;
+}
+
+const delete_by_key = async ({ key, model_name, value }: { model_name: TModel, key: string, value: any }) => {
+    let deleted_item, item, items = await prisma?.[model_name].findMany({});
+    item = items.find((item: any) => item[key] == value);
+
+    deleted_item = await prisma?.[model_name].delete({
+        where: { id: item?.id },
+        // data
+    });
+
+    return deleted_item;
+}
+
+export const db = {
+    create,
+    find_by_id,
+    find_by_keys,
+    update_by_keys,
+    get_all,
+    find_all_by_id,
+    find_all_by_keys,
+    find_all_by_key,
+    update_all_by_key,
+    update_by_id,
+    delete_by_id,
+    find_by_key,
+    find_by_email,
+    update_by_key,
+    delete_by_key
+}

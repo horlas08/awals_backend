@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  // url      = "mongodb+srv://adeshinaadam00:q85Mv9LG1j9dN1tC@cluster.mongodb.net/airbnb"
+  url      = "mongodb+srv://adeshinaadam00:q85Mv9LG1j9dN1tC@cluster0.vogzet4.mongodb.net/airbnb"
+}
+
+model User {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  uid          String
+  name         String
+  phone        String
+  verified     Boolean   @default(false)
+  email        String    @unique
+  passwordHash String?
+  picture      String?
+  role         Role      @default(guest)
+  authChannel  AuthChannel?
+  otpHash      String?
+  otpExpiresAt DateTime?
+  deleted      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  listings     Listing[]
+  bookings     Booking[] @relation("UserBookings")
+  messagesSent Message[] @relation("MessagesSent")
+  messagesRecv Message[] @relation("MessagesReceived")
+  reviewsGiven Review[]  @relation("ReviewsGiven")
+  reviewsRecvd Review[]  @relation("ReviewsRecieved")
+  tokens       Token[]
+}
+
+model Listing {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  hostId             String   @db.ObjectId
+  description        String?
+  address            String?
+  lat                Float?
+  lng                Float?
+  images             String[]
+  pricePerNight      String?
+  amenities          String[]
+  rules              String?
+  cancellationPolicy String?
+  picture            String?
+  deleted            Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  host     User      @relation(fields: [hostId], references: [id])
+  bookings Booking[]
+  messages Message[]
+  reviews  Review[]
+}
+
+model Booking {
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  picture    String?
+  listingId  String        @db.ObjectId
+  guestId    String        @db.ObjectId
+  startDate  DateTime
+  endDate    DateTime
+  totalPrice Int?
+  status     BookingStatus @default(pending)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  // Relations
+  listing Listing @relation(fields: [listingId], references: [id])
+  guest   User    @relation("UserBookings", fields: [guestId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  fromUserId String   @db.ObjectId
+  toUserId   String   @db.ObjectId
+  listingId  String   @db.ObjectId
+  content    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  fromUser User    @relation("MessagesSent", fields: [fromUserId], references: [id])
+  toUser   User    @relation("MessagesReceived", fields: [toUserId], references: [id])
+  listing  Listing @relation(fields: [listingId], references: [id])
+}
+
+model Review {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId  String?  @db.ObjectId
+  reviewerId String?  @db.ObjectId
+  revieweeId String?  @db.ObjectId
+  rating     Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  comment String
+
+  reviewer  User?   @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee  User?   @relation("ReviewsRecieved", fields: [revieweeId], references: [id])
+  listingId String  @db.ObjectId
+  listing   Listing @relation(fields: [listingId], references: [id])
+}
+
+model Token {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  tokenHash  String
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum Role {
+  guest
+  host
+  both
+}
+
+enum AuthChannel {
+  email
+  phone
+  google
+  facebook
+  apple
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+}

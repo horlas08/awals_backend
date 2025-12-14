@@ -1,0 +1,23 @@
+| Resource         | HTTP Method | Endpoint                         | Description                         |
+| ---------------- | ----------- | -------------------------------- | ----------------------------------- |
+| **User**         | `POST`      | `/api/users/register`            | Register a new user                 |
+|                  | `POST`      | `/api/users/login`               | Login (JWT)                         |
+|                  | `GET`       | `/api/users/:id`                 | Get user profile                    |
+|                  | `PATCH`       | `/api/users/:id`                 | Update profile (e.g. verification)  |
+| **Listing**      | `POST`      | `/api/listings`                  | Create listing (host)               |
+|                  | `GET`       | `/api/listings`                  | Search listings (with query params) |
+|                  | `GET`       | `/api/listings/:id`              | Get listing details                 |
+|                  | `PUT`       | `/api/listings/:id`              | Update listing                      |
+|                  | `DELETE`    | `/api/listings/:id`              | Delete a listing                    |
+| **Availability** | `GET`       | `/api/listings/:id/availability` | Get calendar / availability         |
+|                  | `POST`      | `/api/listings/:id/availability` | (Optional) host sets availability   |
+| **Booking**      | `POST`      | `/api/bookings`                  | Create a booking                    |
+|                  | `GET`       | `/api/bookings/:id`              | Get booking details                 |
+|                  | `GET`       | `/api/users/:id/bookings`        | List bookings for a user            |
+|                  | `PUT`       | `/api/bookings/:id/cancel`       | Cancel a booking                    |
+| **Payment**      | `POST`      | `/api/payments`                  | Initiate payment for a booking      |
+|                  | `GET`       | `/api/payments/:id`              | Check payment status                |
+| **Review**       | `POST`      | `/api/reviews`                   | Leave a review (after stay)         |
+|                  | `GET`       | `/api/listings/:id/reviews`      | Get reviews for a listing           |
+| **Messaging**    | `POST`      | `/api/messages`                  | Send a message                      |
+|                  | `GET`       | `/api/users/:id/messages`        | Get conversation for a user         |
