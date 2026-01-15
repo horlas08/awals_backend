@@ -33,7 +33,7 @@ export class AuthController {
       if (!birthday || String(birthday).trim() === '') pushErr('birthday', 'Birthday is required');
       if (!password || String(password).trim() === '') pushErr('password', 'Password is required');
 
-      if (!authChannel || !['email','phone','google','facebook','apple'].includes(String(authChannel))) {
+      if (!authChannel || !['email', 'phone', 'google', 'facebook', 'apple'].includes(String(authChannel))) {
         pushErr('authChannel', 'authChannel must be one of email|phone|google|facebook|apple');
       }
 
@@ -117,7 +117,7 @@ export class AuthController {
       await AuthService.login(res, email, password);
       // res.json({ success: true, data: result });
     } catch (err: any) {
-      return response ({ success: false, code: 400, res, msg: err.message });
+      return response({ success: false, code: 400, res, msg: err.message });
     }
   }
 
@@ -150,7 +150,7 @@ export class AuthController {
 
   static async loginWithIdToken(req: Request, res: Response) {
     try {
-      const { provider, idToken } = req.body as { provider: 'google'|'apple', idToken: string };
+      const { provider, idToken } = req.body as { provider: 'google' | 'apple', idToken: string };
       console.log('[AuthController.loginWithIdToken] provider:', provider, ' idToken len:', idToken?.length);
       await AuthService.loginWithIdToken(res, provider, idToken);
     } catch (err: any) {
