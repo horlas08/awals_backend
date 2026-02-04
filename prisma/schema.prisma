@@ -28,6 +28,8 @@ model User {
 
   // Relations
   listings     Listing[]
+  wishlistCategories WishlistCategory[]
+  wishlist     WishlistItem[]
   bookings     Booking[] @relation("UserBookings")
   messagesSent Message[] @relation("MessagesSent")
   messagesRecv Message[] @relation("MessagesReceived")
@@ -46,6 +48,16 @@ model Listing {
   lng                Float?
   images             String[]
   pricePerNight      String?
+  weekendPrice       String?
+  minNights          Int?     @default(1)
+  guests             Int?     @default(1)
+  beds               Int?     @default(1)
+  bedRooms           Int?     @default(1)
+  bathRooms          Int?     @default(1)
+  unavailableDates   String[]
+  country            String?
+  category           String?
+  rating             Float?
   amenities          String[]
   rules              String?
   cancellationPolicy String?
@@ -59,6 +71,40 @@ model Listing {
   bookings Booking[]
   messages Message[]
   reviews  Review[]
+  wishlistedBy WishlistItem[]
+}
+
+model WishlistItem {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  listingId String   @db.ObjectId
+  categoryId String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+  category WishlistCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, listingId, categoryId])
+}
+
+model WishlistCategory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User @relation(fields: [userId], references: [id])
+  items WishlistItem[]
+
+  @@unique([userId, name])
+}
+
+model AppSettings {
+  id                         String   @id @default(auto()) @map("_id") @db.ObjectId
+  guestFavoriteMinWishlistCount Int   @default(5)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
 model Booking {

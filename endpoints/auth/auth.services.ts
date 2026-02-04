@@ -33,6 +33,18 @@ async function validateAuthChannel(user: any, channel: string) {
   return { ok: true, method: uc } as const;
 }
 
+async function getOrCreateDefaultWishlistCategory(userId: string) {
+  const name = 'Favorites';
+  const existing = await prisma.wishlistCategory.findFirst({ where: { userId, name } });
+  if (existing) return existing;
+  return await prisma.wishlistCategory.create({ data: { userId, name } });
+}
+
+async function wishlistCategoriesForUser(userId: string) {
+  await getOrCreateDefaultWishlistCategory(userId);
+  return await prisma.wishlistCategory.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+}
+
 export class AuthService {
 
 
@@ -100,7 +112,8 @@ export class AuthService {
 
       const token = await createPlainTextToken(user.id);
       console.log('[AuthService.register] created user:', user.id, 'in', (Date.now()-t0)+'ms');
-      return response({ res, code: 201, success: true, msg: 'Registered', data: { user, token } });
+      const wishlistCategories = await wishlistCategoriesForUser(user.id);
+      return response({ res, code: 201, success: true, msg: 'Registered', data: { user, token, wishlistCategories } });
     } catch (error: any) {
       console.error('[AuthService.register] error:', error?.message || error);
       return response({ msg: error.message, res, code: 500, success: false });
@@ -142,7 +155,8 @@ export class AuthService {
     if (!match) return response({ msg: "Invalid credentials", res, success: false, code: 400 });
 
     const token = await createPlainTextToken(user.id);
-    return response({ res, msg: "Successfully logged in", code: 200, success: true, data: { user, token } });
+    const wishlistCategories = await wishlistCategoriesForUser(user.id);
+    return response({ res, msg: "Successfully logged in", code: 200, success: true, data: { user, token, wishlistCategories } });
   }
 
   // ---------- EMAIL EXIST CHECK ----------
@@ -182,7 +196,8 @@ export class AuthService {
     const ch = await validateAuthChannel(user, "phone");
     if (!ch.ok) return response({ res, code: 400, success: false, msg: "login:failed", data: { auth_method_to_use: ch.method } });
     const token = await createPlainTextToken(user.id);
-    return response({ res, code: 200, success: true, msg: 'ok', data: { exists: true, user, token } });
+    const wishlistCategories = await wishlistCategoriesForUser(user.id);
+    return response({ res, code: 200, success: true, msg: 'ok', data: { exists: true, user, token, wishlistCategories } });
   }
 
   // ---------- SOCIAL LOGIN WITH ID TOKEN (GOOGLE/FB/APPLE) ----------
@@ -206,7 +221,8 @@ export class AuthService {
       if (!ch.ok) return response({ res, code: 400, success: false, msg: "login:failed", data: { auth_method_to_use: ch.method, username: user.name } });
       const token = await createPlainTextToken(user.id);
       console.log('[AuthService.loginWithIdToken] success for user', user.id, 'total', (Date.now()-t0)+'ms');
-      return response({ res, code: 200, success: true, msg: 'ok', data: { exists: true, user, token } });
+      const wishlistCategories = await wishlistCategoriesForUser(user.id);
+      return response({ res, code: 200, success: true, msg: 'ok', data: { exists: true, user, token, wishlistCategories } });
     } catch (e: any) {
       console.error('[AuthService.loginWithIdToken] error:', e?.message || e);
       return response({ res, code: 400, success: false, msg: e.message });

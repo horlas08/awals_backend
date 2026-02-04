@@ -3,6 +3,8 @@ import type { Response } from "express";
 import type { IListing } from "./listing.type.js";
 import prisma from "../../prisma/client.js";
 
+const db: any = prisma;
+
 export class ListingService {
 
     // ------------------------------------------------------------
@@ -20,6 +22,9 @@ export class ListingService {
             address,
             images,
             pricePerNight,
+            country,
+            category,
+            rating,
             amenities,
             rules,
             cancellationPolicy,
@@ -28,7 +33,7 @@ export class ListingService {
             lng,
         } = data;
 
-        const listing = await prisma.listing.create({
+        const listing = await db.listing.create({
             data: {
                 hostId: hostId as string,
                 name: name as string,
@@ -38,6 +43,9 @@ export class ListingService {
                 lng: lng as number,
                 images: images as string[],
                 pricePerNight: pricePerNight as string,
+                country: country as string,
+                category: category as string,
+                rating: rating as number,
                 amenities: amenities as string[],
                 rules: rules as string,
                 cancellationPolicy: cancellationPolicy as string,
@@ -58,7 +66,7 @@ export class ListingService {
     // GET BY ID
     // ------------------------------------------------------------
     static async getListingById(res: Response, id: string) {
-        const listing = await prisma.listing.findUnique({
+        const listing = await db.listing.findUnique({
             where: { id },
         });
 
@@ -84,7 +92,7 @@ export class ListingService {
         data: Partial<IListing>
     ) {
 
-        const updated = await prisma.listing.updateMany({
+        const updated = await db.listing.updateMany({
             where: { id: listingId, hostId: userId },
             data,
         });
@@ -92,7 +100,7 @@ export class ListingService {
         if (updated.count === 0)
             return response({ msg: "Listing not found", res, code: 404, success: false });
 
-        const updatedListing = await prisma.listing.findUnique({
+        const updatedListing = await db.listing.findUnique({
             where: { id: listingId },
         });
 
@@ -110,7 +118,7 @@ export class ListingService {
     // ------------------------------------------------------------
     static async deleteListing(res: Response, userId: string, listingId: string) {
 
-        const updated = await prisma.listing.updateMany({
+        const updated = await db.listing.updateMany({
             where: { id: listingId, hostId: userId },
             data: { deleted: true },
         });
@@ -131,7 +139,7 @@ export class ListingService {
     // GET ALL
     // ------------------------------------------------------------
     static async getAllListings() {
-        return prisma.listing.findMany();
+        return db.listing.findMany();
     }
 
     // ------------------------------------------------------------
@@ -185,7 +193,7 @@ export class ListingService {
             };
         }
 
-        return prisma.listing.findMany({
+        return db.listing.findMany({
             where,
             orderBy: { createdAt: "desc" },
         });

@@ -13,6 +13,9 @@ export interface IListing {
   address: string;
   images: string[];
   pricePerNight: string;
+  country?: string;
+  category?: string;
+  rating?: number;
   amenities: string[];
   rules: string;
   cancellationPolicy: string;

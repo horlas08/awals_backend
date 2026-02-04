@@ -8,7 +8,8 @@
     "dev": "nodemon --exec tsx index.ts",
     "build": "tsc",
     "build:refresh": "rm -rf dist & tsc",
-    "dev:refresh": "rm -rf dist & tsc & nodemon --exec 'node --loader ts-node/esm' index.ts"
+    "dev:refresh": "rm -rf dist & tsc & nodemon --exec 'node --loader ts-node/esm' index.ts",
+    "seed": "npx prisma db push && tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
