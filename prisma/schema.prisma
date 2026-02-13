@@ -184,3 +184,33 @@ enum BookingStatus {
   confirmed
   cancelled
 }
+
+model ServiceListing {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId              String   @db.ObjectId
+  intro               String?
+  expertise           String?
+  yearsOfExperience   Int?
+  socialProfiles      String[]
+  location            String?
+  photos              String[]
+  itinerary           Json[]   // [{title, description, duration, icon/image}]
+  pricing             Json?    // {maxGuest, pricePerGuest, privateGroupMinimum}
+  details             Json?    // {isTransporting, transportMethods}
+  title               String?
+  description         String?
+  status              ListingStatus @default(pending)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  host     User      @relation(fields: [hostId], references: [id])
+}
+
+enum ListingStatus {
+  pending
+  action_required
+  completed
+  in_review
+  active
+  inactive
+}
