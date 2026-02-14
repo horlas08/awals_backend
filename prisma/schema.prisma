@@ -77,15 +77,15 @@ model Listing {
 model WishlistItem {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
-  listingId String   @db.ObjectId
+  listingId String?  @db.ObjectId
+  serviceListingId String? @db.ObjectId
   categoryId String   @db.ObjectId
   createdAt DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
-  listing Listing @relation(fields: [listingId], references: [id])
+  listing Listing? @relation(fields: [listingId], references: [id])
+  serviceListing ServiceListing? @relation(fields: [serviceListingId], references: [id])
   category WishlistCategory @relation(fields: [categoryId], references: [id])
-
-  @@unique([userId, listingId, categoryId])
 }
 
 model WishlistCategory {
@@ -199,11 +199,15 @@ model ServiceListing {
   details             Json?    // {isTransporting, transportMethods}
   title               String?
   description         String?
+  country             String?
+  category            String?
   status              ListingStatus @default(pending)
+  deleted             Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   host     User      @relation(fields: [hostId], references: [id])
+  wishlistedBy WishlistItem[]
 }
 
 enum ListingStatus {

@@ -75,6 +75,7 @@ async function main() {
   ];
 
   const categories = ['House', 'Apartment', 'Villa', 'Resort', 'Riad'];
+  const serviceCategories = ['Adventure', 'Food', 'Culture', 'Wellness', 'Nature'];
 
   const now = Date.now();
   const seededNamePrefix = `Seed ${new Date(now).toISOString().slice(0, 10)}`;
@@ -129,6 +130,56 @@ async function main() {
             country: country.code,
             category,
             rating: 4.2 + (i % 5) * 0.1,
+            deleted: false,
+          },
+        });
+      }
+    }
+  }
+
+  // Seed ServiceListing (hosting services) for Explore
+  for (const country of countries) {
+    for (const category of serviceCategories) {
+      for (let i = 1; i <= 8; i++) {
+        const startIndex = Math.floor(Math.random() * imagesToCopy.length);
+        const photos = Array.from({ length: 5 }, (_, j) => {
+          return `/uploads/seed/${imagesToCopy[(startIndex + j) % imagesToCopy.length]}`;
+        }).sort(() => 0.5 - Math.random());
+
+        const title = `${seededNamePrefix} ${category} Service ${i} in ${country.name}`;
+
+        const exists = await db.serviceListing.findFirst({
+          where: {
+            hostId: host.id,
+            country: country.code,
+            category,
+            title,
+          },
+          select: { id: true },
+        });
+
+        if (exists) continue;
+
+        await db.serviceListing.create({
+          data: {
+            hostId: host.id,
+            intro: `I am a certified guide for ${category} experiences in ${country.name}.`,
+            expertise: `${category} expert with local knowledge.`,
+            yearsOfExperience: 2 + (i % 6),
+            socialProfiles: ['https://instagram.com/awals', 'https://tiktok.com/@awals'],
+            location: `${country.name} Downtown`,
+            photos,
+            itinerary: [
+              { title: 'Meet & Briefing', description: 'Quick intro and safety briefing.', duration: 30, image: photos[0] },
+              { title: 'Main Activity', description: 'Enjoy the core experience with guidance.', duration: 90, image: photos[1] },
+            ],
+            pricing: { maxGuest: 5, pricePerGuest: 35 + i * 2, privateGroupMinimum: 100 },
+            details: { isTransporting: i % 2 === 0, transportMethods: i % 2 === 0 ? ['Car'] : [] },
+            title,
+            description: `Demo service listing ${i} for ${country.name} - ${category}.`,
+            country: country.code,
+            category,
+            status: 'active',
             deleted: false,
           },
         });
