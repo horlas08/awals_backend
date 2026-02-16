@@ -28,6 +28,7 @@ model User {
 
   // Relations
   listings     Listing[]
+  serviceListings ServiceListing[]
   wishlistCategories WishlistCategory[]
   wishlist     WishlistItem[]
   bookings     Booking[] @relation("UserBookings")
