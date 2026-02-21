@@ -47,9 +47,16 @@ export function attachWebsocket(server: HttpServer) {
                         socket.send(JSON.stringify({ type: 'error', error: 'booking not found' }));
                         return;
                     }
-                    const listing = await prisma.listing.findUnique({ where: { id: booking.listingId } });
                     const isGuest = booking.guestId === client.userId;
-                    const isHost = !!(listing && listing.hostId === client.userId);
+
+                    // Chat host verification is only supported for place listings.
+                    // Service/experience bookings do not have a Listing to reference here.
+                    let isHost = false;
+                    if (typeof booking.listingId === 'string' && booking.listingId.trim().length > 0) {
+                        const listing = await prisma.listing.findUnique({ where: { id: booking.listingId } });
+                        isHost = !!(listing && listing.hostId === client.userId);
+                    }
+
                     if (!isGuest && !isHost) {
                         socket.send(JSON.stringify({ type: 'error', error: 'not allowed to join this chat' }));
                         return;
