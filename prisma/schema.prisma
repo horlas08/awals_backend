@@ -5,8 +5,7 @@ generator client {
 
 datasource db {
   provider = "mongodb"
-  // url      = "mongodb+srv://adeshinaadam00:q85Mv9LG1j9dN1tC@cluster.mongodb.net/airbnb"
-  url      = "mongodb+srv://adeshinaadam00:q85Mv9LG1j9dN1tC@cluster0.vogzet4.mongodb.net/airbnb"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -29,6 +28,7 @@ model User {
   // Relations
   listings     Listing[]
   serviceListings ServiceListing[]
+  experienceListings ExperienceListing[]
   wishlistCategories WishlistCategory[]
   wishlist     WishlistItem[]
   bookings     Booking[] @relation("UserBookings")
@@ -80,12 +80,14 @@ model WishlistItem {
   userId    String   @db.ObjectId
   listingId String?  @db.ObjectId
   serviceListingId String? @db.ObjectId
+  experienceListingId String? @db.ObjectId
   categoryId String   @db.ObjectId
   createdAt DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
   listing Listing? @relation(fields: [listingId], references: [id])
   serviceListing ServiceListing? @relation(fields: [serviceListingId], references: [id])
+  experienceListing ExperienceListing? @relation(fields: [experienceListingId], references: [id])
   category WishlistCategory @relation(fields: [categoryId], references: [id])
 }
 
@@ -112,7 +114,9 @@ model Booking {
   id         String        @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   picture    String?
-  listingId  String        @db.ObjectId
+  listingId  String?       @db.ObjectId
+  serviceListingId String? @db.ObjectId
+  experienceListingId String? @db.ObjectId
   guestId    String        @db.ObjectId
   startDate  DateTime
   endDate    DateTime
@@ -122,7 +126,9 @@ model Booking {
   updatedAt  DateTime      @updatedAt
 
   // Relations
-  listing Listing @relation(fields: [listingId], references: [id])
+  listing Listing? @relation(fields: [listingId], references: [id])
+  serviceListing ServiceListing? @relation(fields: [serviceListingId], references: [id])
+  experienceListing ExperienceListing? @relation(fields: [experienceListingId], references: [id])
   guest   User    @relation("UserBookings", fields: [guestId], references: [id])
 }
 
@@ -198,6 +204,31 @@ model ServiceListing {
   itinerary           Json[]   // [{title, description, duration, icon/image}]
   pricing             Json?    // {maxGuest, pricePerGuest, privateGroupMinimum}
   details             Json?    // {isTransporting, transportMethods}
+  title               String?
+  description         String?
+  country             String?
+  category            String?
+  status              ListingStatus @default(pending)
+  deleted             Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  host     User      @relation(fields: [hostId], references: [id])
+  wishlistedBy WishlistItem[]
+}
+
+model ExperienceListing {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId              String   @db.ObjectId
+  intro               String?
+  expertise           String?
+  yearsOfExperience   Int?
+  socialProfiles      String[]
+  location            String?
+  photos              String[]
+  itinerary           Json[]
+  pricing             Json?
+  details             Json?
   title               String?
   description         String?
   country             String?

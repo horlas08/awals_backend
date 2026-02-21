@@ -4,6 +4,7 @@ import AuthRoute from './endpoints/auth/auth.route.js'
 import path from 'path';
 import ListingRoute from './endpoints/listings/listing.route.js';
 import ServiceRoute from './endpoints/service/service.routes.js';
+import ExperienceRoute from './endpoints/experience/experience.routes.js';
 
 const app: Application = express();
 
@@ -28,6 +29,7 @@ app.use(
 
 app.use(`${BASE_ROUTE}/listings`, ListingRoute);
 app.use(`${BASE_ROUTE}/service`, ServiceRoute);
+app.use(`${BASE_ROUTE}/experience`, ExperienceRoute);
 app.get("/", async (_, res) => {
 
   res.json({ msg: 'Base Route /' })

@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { type Request, type Response, type NextFunction } from "express";
 import { response } from "../../utils/req-res.js";
-import prisma from "../../prisma/client.js";
+import prisma from '../../prisma/client.js';
 
 export async function verifyToken(
   req: Request & { user?: any },

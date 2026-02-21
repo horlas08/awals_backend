@@ -9,7 +9,8 @@
     "build": "tsc",
     "build:refresh": "rm -rf dist & tsc",
     "dev:refresh": "rm -rf dist & tsc & nodemon --exec 'node --loader ts-node/esm' index.ts",
-    "seed": "npx prisma db push && tsx prisma/seed.ts"
+    "seed": "npx prisma db push && tsx prisma/seed.ts",
+    "seed:fresh": "npx prisma db push --force-reset && tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

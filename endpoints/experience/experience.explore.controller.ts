@@ -53,7 +53,7 @@ export async function limitedAllCategory(req: Request, res: Response) {
 
     const results = await Promise.all(
       countries.map(async (country) => {
-        const listings = await db.serviceListing.findMany({
+        const listings = await db.experienceListing.findMany({
           where: {
             deleted: false,
             country,
@@ -86,14 +86,11 @@ export async function listByCategory(req: Request, res: Response) {
 
     const limit = req.query.limit != null ? parseLimit(req.query.limit, 20) : undefined;
 
-    const where: any = {
-      deleted: false,
-      category,
-    };
+    const where: any = { deleted: false, category };
     if (country) where.country = country;
     else if (countries?.length) where.country = { in: countries };
 
-    const listings = await db.serviceListing.findMany({
+    const listings = await db.experienceListing.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -115,11 +112,8 @@ export async function listByCountry(req: Request, res: Response) {
 
     const limit = req.query.limit != null ? parseLimit(req.query.limit, 50) : undefined;
 
-    const listings = await db.serviceListing.findMany({
-      where: {
-        deleted: false,
-        country,
-      },
+    const listings = await db.experienceListing.findMany({
+      where: { deleted: false, country },
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: { _count: { select: { wishlistedBy: true } } },
@@ -136,17 +130,16 @@ export async function toggleWishlist(req: Request & { user?: any }, res: Respons
     const userId = req.user?.id?.toString();
     if (!userId) return response({ res, code: 401, success: false, msg: 'Authorization required' });
 
-    const serviceListingId = (req.params.id ?? '').toString();
-    if (!serviceListingId) return response({ res, code: 400, success: false, msg: 'service listing id is required' });
+    const experienceListingId = (req.params.id ?? '').toString();
+    if (!experienceListingId) return response({ res, code: 400, success: false, msg: 'experience listing id is required' });
 
-    const listing = await db.serviceListing.findUnique({ where: { id: serviceListingId } });
+    const listing = await db.experienceListing.findUnique({ where: { id: experienceListingId } });
     if (!listing || listing.deleted) return response({ res, code: 404, success: false, msg: 'Listing not found' });
-    
 
     const cat = await getOrCreateDefaultWishlistCategory(userId);
 
     const existing = await db.wishlistItem.findFirst({
-      where: { userId, serviceListingId, categoryId: cat.id },
+      where: { userId, experienceListingId, categoryId: cat.id },
     });
 
     if (existing) {
@@ -155,7 +148,7 @@ export async function toggleWishlist(req: Request & { user?: any }, res: Respons
     }
 
     await db.wishlistItem.create({
-      data: { userId, serviceListingId, categoryId: cat.id },
+      data: { userId, experienceListingId, categoryId: cat.id },
     });
 
     return response({ res, code: 200, success: true, msg: 'ok', data: { wishlisted: true } });
@@ -174,13 +167,13 @@ export async function getWishlist(req: Request & { user?: any }, res: Response) 
     const cat = await getOrCreateDefaultWishlistCategory(userId);
 
     const items = await db.wishlistItem.findMany({
-      where: { userId, categoryId: cat.id, serviceListingId: { not: null } },
+      where: { userId, categoryId: cat.id, experienceListingId: { not: null } },
       orderBy: { createdAt: 'desc' },
-      include: { serviceListing: { include: { _count: { select: { wishlistedBy: true } } } } },
+      include: { experienceListing: { include: { _count: { select: { wishlistedBy: true } } } } },
     });
 
     const listings = (items as any[])
-      .map((i: any) => i.serviceListing)
+      .map((i: any) => i.experienceListing)
       .filter((l: any) => l && l.deleted !== true);
 
     return response({ res, code: 200, success: true, msg: 'ok', data: { listings: withGuestFavorite(listings, threshold) } });
@@ -249,8 +242,8 @@ export async function toggleWishlistInCategory(req: Request & { user?: any }, re
     const userId = req.user?.id?.toString();
     if (!userId) return response({ res, code: 401, success: false, msg: 'Authorization required' });
 
-    const serviceListingId = (req.params.id ?? '').toString();
-    if (!serviceListingId) return response({ res, code: 400, success: false, msg: 'service listing id is required' });
+    const experienceListingId = (req.params.id ?? '').toString();
+    if (!experienceListingId) return response({ res, code: 400, success: false, msg: 'experience listing id is required' });
 
     const categoryId = (req.params.categoryId ?? '').toString();
     if (!categoryId) return response({ res, code: 400, success: false, msg: 'category id is required' });
@@ -258,11 +251,11 @@ export async function toggleWishlistInCategory(req: Request & { user?: any }, re
     const category = await db.wishlistCategory.findFirst({ where: { id: categoryId, userId } });
     if (!category) return response({ res, code: 404, success: false, msg: 'Wishlist category not found' });
 
-    const listing = await db.serviceListing.findUnique({ where: { id: serviceListingId } });
+    const listing = await db.experienceListing.findUnique({ where: { id: experienceListingId } });
     if (!listing || listing.deleted) return response({ res, code: 404, success: false, msg: 'Listing not found' });
 
     const existing = await db.wishlistItem.findFirst({
-      where: { userId, serviceListingId, categoryId },
+      where: { userId, experienceListingId, categoryId },
     });
 
     if (existing) {
@@ -270,7 +263,7 @@ export async function toggleWishlistInCategory(req: Request & { user?: any }, re
     }
 
     await db.wishlistItem.create({
-      data: { userId, serviceListingId, categoryId },
+      data: { userId, experienceListingId, categoryId },
     });
 
     return response({ res, code: 200, success: true, msg: 'ok', data: { wishlisted: true } });
@@ -293,13 +286,13 @@ export async function getWishlistCategoryListings(req: Request & { user?: any },
     if (!category) return response({ res, code: 404, success: false, msg: 'Wishlist category not found' });
 
     const items = await db.wishlistItem.findMany({
-      where: { userId, categoryId, serviceListingId: { not: null } },
+      where: { userId, categoryId, experienceListingId: { not: null } },
       orderBy: { createdAt: 'desc' },
-      include: { serviceListing: { include: { _count: { select: { wishlistedBy: true } } } } },
+      include: { experienceListing: { include: { _count: { select: { wishlistedBy: true } } } } },
     });
 
     const listings = (items as any[])
-      .map((i: any) => i.serviceListing)
+      .map((i: any) => i.experienceListing)
       .filter((l: any) => l && l.deleted !== true);
 
     return response({ res, code: 200, success: true, msg: 'ok', data: { listings: withGuestFavorite(listings, threshold) } });
@@ -308,14 +301,14 @@ export async function getWishlistCategoryListings(req: Request & { user?: any },
   }
 }
 
-export async function getServiceListingDetails(req: Request, res: Response) {
+export async function getExperienceListingDetails(req: Request, res: Response) {
   try {
     const listingId = (req.params.id ?? '').toString();
     if (!listingId) return response({ res, code: 400, success: false, msg: 'listing id is required' });
 
     const threshold = await guestFavoriteThreshold();
 
-    const listing = await db.serviceListing.findUnique({
+    const listing = await db.experienceListing.findUnique({
       where: { id: listingId },
       include: { _count: { select: { wishlistedBy: true } } },
     });
@@ -323,8 +316,6 @@ export async function getServiceListingDetails(req: Request, res: Response) {
     if (!listing || listing.deleted) {
       return response({ res, code: 404, success: false, msg: 'Listing not found' });
     }
-
-    
 
     const out = withGuestFavorite([listing], threshold)[0];
     return response({ res, code: 200, success: true, msg: 'ok', data: { listing: out } });

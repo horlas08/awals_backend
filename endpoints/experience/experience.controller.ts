@@ -5,9 +5,9 @@ import { response } from '../../utils/req-res.js';
 const db: any = prisma;
 
 // ----------------------------------------------------------------------
-// Create a new Service Listing (Draft)
+// Create a new Experience Listing (Draft)
 // ----------------------------------------------------------------------
-export const createServiceListing = async (req: Request, res: Response) => {
+export const createExperienceListing = async (req: Request, res: Response) => {
     try {
         const { status, ...data } = req.body as any;
 
@@ -16,12 +16,7 @@ export const createServiceListing = async (req: Request, res: Response) => {
             return response({ res, code: 401, success: false, msg: 'Authorization required', data: null });
         }
 
-        // Ensure hostId is provided or derived from authenticated user
-        // For now assuming passed in body or req.user (middleware usage)
-        // const userId = req.user?.id; 
-
-        // Create a new listing with minimal required fields or as a draft
-        const listing = await db.serviceListing.create({
+        const listing = await db.experienceListing.create({
             data: {
                 hostId,
                 status: status || 'pending',
@@ -31,15 +26,15 @@ export const createServiceListing = async (req: Request, res: Response) => {
 
         return response({ res, code: 201, success: true, msg: 'ok', data: listing });
     } catch (error: any) {
-        console.error('Error creating service listing:', error);
+        console.error('Error creating experience listing:', error);
         return response({ res, code: 500, success: false, msg: error.message, data: null });
     }
 };
 
 // ----------------------------------------------------------------------
-// Update an existing Service Listing (Step-by-step)
+// Update an existing Experience Listing (Step-by-step)
 // ----------------------------------------------------------------------
-export const updateServiceListing = async (req: Request, res: Response) => {
+export const updateExperienceListing = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const data = req.body as any;
@@ -49,7 +44,7 @@ export const updateServiceListing = async (req: Request, res: Response) => {
             return response({ res, code: 401, success: false, msg: 'Authorization required', data: null });
         }
 
-        const existing = await db.serviceListing.findUnique({ where: { id } });
+        const existing = await db.experienceListing.findUnique({ where: { id } });
         if (!existing) {
             return response({ res, code: 404, success: false, msg: 'Listing not found', data: null });
         }
@@ -57,7 +52,7 @@ export const updateServiceListing = async (req: Request, res: Response) => {
             return response({ res, code: 401, success: false, msg: 'Unauthorized', data: null });
         }
 
-        const listing = await db.serviceListing.update({
+        const listing = await db.experienceListing.update({
             where: { id },
             data: {
                 ...data,
@@ -66,15 +61,15 @@ export const updateServiceListing = async (req: Request, res: Response) => {
 
         return response({ res, code: 200, success: true, msg: 'ok', data: listing });
     } catch (error: any) {
-        console.error('Error updating service listing:', error);
+        console.error('Error updating experience listing:', error);
         return response({ res, code: 500, success: false, msg: error.message, data: null });
     }
 };
 
 // ----------------------------------------------------------------------
-// Get a Service Listing by ID
+// Get an Experience Listing by ID
 // ----------------------------------------------------------------------
-export const getServiceListing = async (req: Request, res: Response) => {
+export const getExperienceListing = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -83,7 +78,7 @@ export const getServiceListing = async (req: Request, res: Response) => {
             return response({ res, code: 401, success: false, msg: 'Authorization required', data: null });
         }
 
-        const listing = await db.serviceListing.findUnique({
+        const listing = await db.experienceListing.findUnique({
             where: { id },
         });
 
@@ -97,27 +92,21 @@ export const getServiceListing = async (req: Request, res: Response) => {
 
         return response({ res, code: 200, success: true, msg: 'ok', data: listing });
     } catch (error: any) {
-        console.error('Error fetching service listing:', error);
+        console.error('Error fetching experience listing:', error);
         return response({ res, code: 500, success: false, msg: error.message, data: null });
     }
 };
 
 // ----------------------------------------------------------------------
-// Upload Image for Service Listing
+// Upload Image for Experience Listing
 // ----------------------------------------------------------------------
-export const uploadServiceImage = async (req: Request, res: Response) => {
+export const uploadExperienceImage = async (req: Request, res: Response) => {
     try {
         if (!req.file) {
             return response({ res, code: 400, success: false, msg: 'No file uploaded', data: null });
         }
 
-        // Assuming multer middleware handles the upload and puts file in 'uploads/'
-        // Construct the public URL or path
         const filePath = `/uploads/${req.file.filename}`;
-
-        // Note: We are not automatically adding it to the 'photos' array here
-        // The frontend should receive the path and then call 'updateServiceListing' to add it to the array.
-        // OR we could update it here if 'id' is passed.
 
         return response({ res, code: 200, success: true, msg: 'ok', data: { path: filePath } });
     } catch (error: any) {
