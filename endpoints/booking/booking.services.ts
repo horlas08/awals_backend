@@ -8,7 +8,10 @@ export default class BookingService {
   // CHECK AVAILABILITY
   // ---------------------------------------------------------------------
   static async isListingAvailable(
-    where: { listingId?: string; serviceListingId?: string; experienceListingId?: string },
+    where:
+      | { listingId: string; serviceListingId?: never; experienceListingId?: never }
+      | { serviceListingId: string; listingId?: never; experienceListingId?: never }
+      | { experienceListingId: string; listingId?: never; serviceListingId?: never },
     startDate: Date,
     endDate: Date
   ): Promise<boolean> {
@@ -50,11 +53,15 @@ export default class BookingService {
       throw new Error('Provide exactly one of listingId, serviceListingId, experienceListingId');
     }
 
+    const listingId = hasListingId ? data.listingId!.trim() : undefined;
+    const serviceListingId = hasServiceListingId ? data.serviceListingId!.trim() : undefined;
+    const experienceListingId = hasExperienceListingId ? data.experienceListingId!.trim() : undefined;
+
     const availabilityWhere = hasListingId
-      ? { listingId: data.listingId }
+      ? ({ listingId } as { listingId: string })
       : hasServiceListingId
-        ? { serviceListingId: data.serviceListingId }
-        : { experienceListingId: data.experienceListingId };
+        ? ({ serviceListingId } as { serviceListingId: string })
+        : ({ experienceListingId } as { experienceListingId: string });
 
     const isAvailable = await this.isListingAvailable(availabilityWhere, data.startDate, data.endDate);
 
@@ -71,48 +78,51 @@ export default class BookingService {
 
     if (hasListingId) {
       const listing = await prisma.listing.findUnique({
-        where: { id: data.listingId },
-        include: { user: true },
+        where: { id: listingId as string },
+        include: { host: true },
       });
       if (!listing) throw new Error('Listing not found');
-      const host = listing.user;
-      const hostName = host.firstName || host.fullName || 'Host';
+
+      const host = listing.host;
+      const hostName = host.name || 'Host';
+
+      const firstImage = Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : null;
       bookingTarget = {
         kind: 'listing',
         id: listing.id,
-        title: listing.title,
-        image: listing.image ?? null,
-        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.image ?? null },
+        title: listing.name,
+        image: firstImage ?? listing.picture ?? null,
+        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.picture ?? null },
       };
     } else if (hasServiceListingId) {
       const service = await (prisma as any).serviceListing.findUnique({
-        where: { id: data.serviceListingId },
+        where: { id: serviceListingId },
         include: { host: true },
       });
       if (!service) throw new Error('Service listing not found');
       const host = service.host;
-      const hostName = host.firstName || host.fullName || 'Host';
+      const hostName = host.name || 'Host';
       bookingTarget = {
         kind: 'service',
         id: service.id,
         title: service.title ?? 'Service',
         image: (service.photos && service.photos.length > 0) ? service.photos[0] : null,
-        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.image ?? null },
+        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.picture ?? null },
       };
     } else {
       const experience = await (prisma as any).experienceListing.findUnique({
-        where: { id: data.experienceListingId },
+        where: { id: experienceListingId },
         include: { host: true },
       });
       if (!experience) throw new Error('Experience listing not found');
       const host = experience.host;
-      const hostName = host.firstName || host.fullName || 'Host';
+      const hostName = host.name || 'Host';
       bookingTarget = {
         kind: 'experience',
         id: experience.id,
         title: experience.title ?? 'Experience',
         image: (experience.photos && experience.photos.length > 0) ? experience.photos[0] : null,
-        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.image ?? null },
+        host: { id: host.id, name: hostName, email: host.email ?? null, image: host.picture ?? null },
       };
     }
 
@@ -126,18 +136,22 @@ export default class BookingService {
     }
 
     // Create the booking
+    const bookingCreateData = {
+      name: data.name,
+      picture: data.picture,
+      ...(hasListingId ? { listingId: listingId as string } : {}),
+      ...(hasServiceListingId ? { serviceListingId: serviceListingId as string } : {}),
+      ...(hasExperienceListingId ? { experienceListingId: experienceListingId as string } : {}),
+      guestId: userId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      totalPrice: data.totalPrice,
+      status: "confirmed" as const,
+    };
+
     const booking = await prisma.booking.create({
       data: {
-        name: data.name,
-        picture: data.picture,
-        listingId: hasListingId ? data.listingId : null,
-        serviceListingId: hasServiceListingId ? data.serviceListingId : null,
-        experienceListingId: hasExperienceListingId ? data.experienceListingId : null,
-        guestId: userId,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        totalPrice: data.totalPrice,
-        status: "confirmed",
+        ...bookingCreateData,
       },
     });
 
@@ -148,7 +162,7 @@ export default class BookingService {
 
     const host = bookingTarget.host;
     const hostName = host.name;
-    const guestName = guest.firstName || guest.fullName || 'Guest';
+    const guestName = guest.name || 'Guest';
 
     // Send emails (fire and forget, don't block on failure)
     try {
@@ -181,14 +195,16 @@ export default class BookingService {
 
     // Create initial chat message from guest to host
     try {
-      await prisma.message.create({
-        data: {
-          fromUserId: userId,
-          toUserId: host.id,
-          listingId: hasListingId ? (data.listingId as string) : bookingTarget.id,
-          content: `Hi ${hostName}! I just booked ${bookingTarget.title} from ${formatDate(data.startDate)} to ${formatDate(data.endDate)}. Looking forward to it!`,
-        },
-      });
+      if (hasListingId) {
+        await prisma.message.create({
+          data: {
+            fromUserId: userId,
+            toUserId: host.id,
+            listingId: listingId as string,
+            content: `Hi ${hostName}! I just booked ${bookingTarget.title} from ${formatDate(data.startDate)} to ${formatDate(data.endDate)}. Looking forward to it!`,
+          },
+        });
+      }
     } catch (msgError) {
       console.error("Failed to create initial message:", msgError);
     }
