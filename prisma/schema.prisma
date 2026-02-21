@@ -214,6 +214,7 @@ model ServiceListing {
   updatedAt           DateTime @updatedAt
 
   host     User      @relation(fields: [hostId], references: [id])
+  bookings Booking[]
   wishlistedBy WishlistItem[]
 }
 
@@ -239,6 +240,7 @@ model ExperienceListing {
   updatedAt           DateTime @updatedAt
 
   host     User      @relation(fields: [hostId], references: [id])
+  bookings Booking[]
   wishlistedBy WishlistItem[]
 }
 
