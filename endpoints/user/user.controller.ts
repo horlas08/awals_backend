@@ -44,10 +44,10 @@ export class UserController {
     const userId = req?.userId;
 
     try {
-      await UserService.updateUser(res, userId as string, { deleted: true });
-      // return res.json({ success: true, data: deleted });
+      await UserService.deleteUser(userId as string);
+      return response({ res, code: 200, success: true, msg: "Account deactivated successfully" });
     } catch (err: any) {
-      return res.status(404).json({ success: false, message: err.message });
+      return response({ res, code: 400, success: false, msg: err.message });
     }
   }
 

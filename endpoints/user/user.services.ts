@@ -1,6 +1,7 @@
 import { response } from "../../utils/req-res.js";
 import type { Response } from "express";
 import prisma from "../../prisma/client.js";
+import bcrypt from "bcryptjs";
 
 export class UserService {
 
@@ -45,6 +46,11 @@ export class UserService {
     // UPDATE USER
     // ------------------------------------------------------------
     static async updateUser(res: Response, id: string, data: any) {
+        if (data.password) {
+            data.passwordHash = await bcrypt.hash(data.password, 10);
+            delete data.password;
+        }
+
         const updated = await prisma.user.updateMany({
             where: { id: String(id) },
             data
@@ -76,13 +82,26 @@ export class UserService {
     // DELETE USER
     // ------------------------------------------------------------
     static async deleteUser(id: string) {
-        const user = await prisma.user.delete({
-            where: { id: String(id) }
-        });
+        const userId = String(id);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return;
+        }
 
-        if (!user) throw new Error("User not found");
+        await prisma.$transaction([
+            prisma.token.deleteMany({ where: { userId } }),
+            prisma.review.deleteMany({ where: { OR: [{ reviewerId: userId }, { revieweeId: userId }] } }),
+            prisma.message.deleteMany({ where: { OR: [{ fromUserId: userId }, { toUserId: userId }] } }),
+            prisma.wishlistItem.deleteMany({ where: { userId } }),
+            prisma.wishlistCategory.deleteMany({ where: { userId } }),
+            prisma.booking.deleteMany({ where: { guestId: userId } }),
+            prisma.listing.deleteMany({ where: { hostId: userId } }),
+            prisma.serviceListing.deleteMany({ where: { hostId: userId } }),
+            prisma.experienceListing.deleteMany({ where: { hostId: userId } }),
+            prisma.user.delete({ where: { id: userId } }),
+        ]);
 
-        return user;
+        return true;
     }
 
     // ------------------------------------------------------------
