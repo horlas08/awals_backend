@@ -60,4 +60,47 @@ export default class MessagingService {
 
     return messages;
   }
+
+  // ------------------------------------------------------------
+  // GET INBOX THREADS FOR USER
+  // ------------------------------------------------------------
+  static async getInbox(userId: string) {
+    // Find all distinct other users we have messages with
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [{ fromUserId: userId }, { toUserId: userId }],
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        fromUser: { select: { id: true, name: true, picture: true, role: true } },
+        toUser: { select: { id: true, name: true, picture: true, role: true } },
+        listing: { select: { id: true, hostId: true } },
+      },
+    });
+
+    const threadMap = new Map();
+    for (const msg of messages) {
+      const isFromMe = msg.fromUserId === userId;
+      const otherUser = isFromMe ? msg.toUser : msg.fromUser;
+
+      if (!threadMap.has(otherUser.id)) {
+        let context = 'Traveling';
+        if (msg.listing?.hostId === userId) {
+          context = 'Hosting';
+        }
+
+        threadMap.set(otherUser.id, {
+          userId: otherUser.id,
+          name: otherUser.name,
+          picture: otherUser.picture,
+          lastMessage: msg.content,
+          date: msg.createdAt,
+          bookingId: msg.listingId, // Reusing for routing/UI later
+          context,
+        });
+      }
+    }
+
+    return Array.from(threadMap.values());
+  }
 }

@@ -82,5 +82,49 @@ export class EmailService {
       `,
     });
   }
+
+  static async sendSupportAcknowledgement(
+    email: string,
+    data: {
+      userName: string;
+      subject: string;
+      message: string;
+      language: string; // 'en' or 'ar'
+    }
+  ) {
+    const isAr = data.language === 'ar';
+    const subject = isAr ? 'تم استلام طلب الدعم الخاص بك' : 'Support Request Received';
+
+    const htmlEn = `
+      <h2>Support Request Received</h2>
+      <p>Hi ${data.userName},</p>
+      <p>We have received your support request. Our team will review it and get back to you shortly.</p>
+      <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+        <h3 style="margin:0 0 8px 0;">Subject: ${data.subject}</h3>
+        <p style="margin:4px 0;">${data.message}</p>
+      </div>
+      <p>Thank you for reaching out!</p>
+    `;
+
+    const htmlAr = `
+      <div dir="rtl">
+        <h2>تم استلام طلب الدعم الخاص بك</h2>
+        <p>مرحباً ${data.userName}،</p>
+        <p>لقد تلقينا طلب الدعم الخاص بك. سيقوم فريقنا بمراجعته والرد عليك قريباً.</p>
+        <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+          <h3 style="margin:0 0 8px 0;">الموضوع: ${data.subject}</h3>
+          <p style="margin:4px 0;">${data.message}</p>
+        </div>
+        <p>شكراً لتواصلك معنا!</p>
+      </div>
+    `;
+
+    return transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: subject,
+      html: isAr ? htmlAr : htmlEn,
+    });
+  }
 }
 

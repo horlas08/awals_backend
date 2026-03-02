@@ -194,9 +194,30 @@ export async function getWishlistCategories(req: Request & { user?: any }, res: 
     }
 
     await getOrCreateDefaultWishlistCategory(userId);
-    const categories = await db.wishlistCategory.findMany({
+    const categoriesRaw = await db.wishlistCategory.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            listing: {
+              select: { images: true }
+            }
+          }
+        }
+      }
+    });
+
+    const categories = categoriesRaw.map((cat: any) => {
+      let image = null;
+      if (cat.items?.length > 0 && cat.items[0].listing?.images?.length > 0) {
+        image = cat.items[0].listing.images[0];
+      }
+      const c = { ...cat, image };
+      delete c.items;
+      return c;
     });
 
     return response({ res, code: 200, success: true, msg: 'ok', data: { categories } });

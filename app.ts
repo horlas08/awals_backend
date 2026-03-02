@@ -5,6 +5,8 @@ import path from 'path';
 import ListingRoute from './endpoints/listings/listing.route.js';
 import ServiceRoute from './endpoints/service/service.routes.js';
 import ExperienceRoute from './endpoints/experience/experience.routes.js';
+import UserRoute from './endpoints/user/user.routes.js';
+import SupportRoute from './endpoints/support/support.route.js';
 
 const app: Application = express();
 
@@ -30,6 +32,8 @@ app.use(
 app.use(`${BASE_ROUTE}/listings`, ListingRoute);
 app.use(`${BASE_ROUTE}/service`, ServiceRoute);
 app.use(`${BASE_ROUTE}/experience`, ExperienceRoute);
+app.use(`${BASE_ROUTE}/user`, UserRoute);
+app.use(`${BASE_ROUTE}/support`, SupportRoute);
 app.get("/", async (_, res) => {
 
   res.json({ msg: 'Base Route /' })

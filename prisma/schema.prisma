@@ -38,6 +38,7 @@ model User {
   reviewsGiven Review[]  @relation("ReviewsGiven")
   reviewsRecvd Review[]  @relation("ReviewsRecieved")
   tokens       Token[]
+  supportTickets SupportTicket[]
 }
 
 model Listing {
@@ -252,4 +253,16 @@ enum ListingStatus {
   in_review
   active
   inactive
+}
+
+model SupportTicket {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  subject   String
+  message   String
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
 }

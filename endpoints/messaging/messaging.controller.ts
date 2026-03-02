@@ -55,4 +55,24 @@ export default class MessagingController {
             });
         }
     }
+    static async getInbox(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.id || (req as any).userId;
+            const inbox = await MessagingService.getInbox(userId);
+            return response({
+                success: true,
+                data: { inbox },
+                res,
+                code: 200,
+                msg: 'Got inbox'
+            });
+        } catch (err: any) {
+            return response({
+                success: false,
+                msg: err.message,
+                res,
+                code: 400
+            });
+        }
+    }
 }
