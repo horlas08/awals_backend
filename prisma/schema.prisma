@@ -23,6 +23,26 @@ model User {
   otpExpiresAt DateTime?
   deleted      Boolean   @default(false)
   autoTranslate Boolean  @default(false)
+  
+  // Balance fields
+  pendingBalance   Float @default(0.0)
+  availableBalance Float @default(0.0)
+  totalWithdrawn   Float @default(0.0)
+
+  // Payout fields
+  payoutPaypalEmail      String?
+  payoutBankName         String?
+  payoutAccountNumber    String?
+  payoutAccountHolderName String?
+
+  // Profile Bio fields
+  bio          String?
+  work         String?
+  location     String?
+  favoriteSong String?
+  pets         String?
+  obsession    String?
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -75,6 +95,7 @@ model Listing {
   messages Message[]
   reviews  Review[]
   wishlistedBy WishlistItem[]
+  dateConfigs ListingDateConfig[]
 }
 
 model WishlistItem {
@@ -218,6 +239,7 @@ model ServiceListing {
   host     User      @relation(fields: [hostId], references: [id])
   bookings Booking[]
   wishlistedBy WishlistItem[]
+  dateConfigs ListingDateConfig[]
 }
 
 model ExperienceListing {
@@ -244,6 +266,7 @@ model ExperienceListing {
   host     User      @relation(fields: [hostId], references: [id])
   bookings Booking[]
   wishlistedBy WishlistItem[]
+  dateConfigs ListingDateConfig[]
 }
 
 enum ListingStatus {
@@ -265,4 +288,25 @@ model SupportTicket {
   updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model ListingDateConfig {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  listingId           String?  @db.ObjectId
+  serviceListingId    String?  @db.ObjectId
+  experienceListingId String?  @db.ObjectId
+  date                DateTime
+  isAvailable         Boolean  @default(true)
+  price               Float?
+  minNights           Int?     @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  listing             Listing?           @relation(fields: [listingId], references: [id])
+  serviceListing      ServiceListing?    @relation(fields: [serviceListingId], references: [id])
+  experienceListing   ExperienceListing? @relation(fields: [experienceListingId], references: [id])
+
+  @@unique([listingId, date])
+  @@unique([serviceListingId, date])
+  @@unique([experienceListingId, date])
 }

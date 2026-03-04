@@ -7,6 +7,9 @@ import ServiceRoute from './endpoints/service/service.routes.js';
 import ExperienceRoute from './endpoints/experience/experience.routes.js';
 import UserRoute from './endpoints/user/user.routes.js';
 import SupportRoute from './endpoints/support/support.route.js';
+import MessagingRoute from './endpoints/messaging/messaging.route.js';
+import PaymentRoute from './endpoints/payment/payment.route.js';
+import CalendarRoute from './endpoints/calendar/calendar.route.js';
 
 const app: Application = express();
 
@@ -34,6 +37,9 @@ app.use(`${BASE_ROUTE}/service`, ServiceRoute);
 app.use(`${BASE_ROUTE}/experience`, ExperienceRoute);
 app.use(`${BASE_ROUTE}/user`, UserRoute);
 app.use(`${BASE_ROUTE}/support`, SupportRoute);
+app.use(`${BASE_ROUTE}/messaging`, MessagingRoute);
+app.use(`${BASE_ROUTE}/payments`, PaymentRoute);
+app.use(`${BASE_ROUTE}/calendar`, CalendarRoute);
 app.get("/", async (_, res) => {
 
   res.json({ msg: 'Base Route /' })

@@ -29,13 +29,24 @@ export class UserController {
   static async updateUser(req: Request & { userId?: string }, res: Response) {
     const userId = req?.userId;
 
-    // const editableFeilds = ['name', 'phone', 'role', 'picture'];
-
     try {
       await UserService.updateUser(res, userId as string, req.body);
-      // return res.json({ success: true, data: updated });
     } catch (err: any) {
       return res.status(404).json({ success: false, message: err.message });
+    }
+  }
+
+  static async uploadProfilePicture(req: Request & { userId?: string }, res: Response) {
+    const userId = req?.userId;
+    if (!req.file) {
+      return response({ res, code: 400, success: false, msg: "No file uploaded" });
+    }
+
+    const filePath = `/uploads/${req.file.filename}`;
+    try {
+      await UserService.updateUser(res, userId as string, { picture: filePath });
+    } catch (err: any) {
+      return response({ res, code: 400, success: false, msg: err?.message });
     }
   }
 

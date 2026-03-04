@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { attachImagePath, createDraft, finalizeDraft, getDraft, updateDraft } from './listing.controller.js';
+import { attachImagePath, createDraft, finalizeDraft, getDraft, listDrafts, updateDraft } from './listing.controller.js';
 import { verifyToken } from '../auth/auth.middleware.js';
 import {
   createWishlistCategory,
@@ -15,6 +15,7 @@ import {
   listByCountry,
   toggleWishlist,
   toggleWishlistInCategory,
+  getAllMyListings,
 } from './listing.explore.controller.js';
 
 const router = Router();
@@ -33,12 +34,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post('/drafts', createDraft);
-router.get('/drafts', (_req, res) => {
-  // import inside to avoid circular
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const ctrl = require('./listing.controller.js');
-  return ctrl.listDrafts(_req, res);
-});
+router.get('/drafts', listDrafts);
 router.get('/drafts/:id', getDraft);
 router.patch('/drafts/:id', updateDraft);
 router.post('/drafts/:id/images', upload.single('file'), attachImagePath);
@@ -48,6 +44,9 @@ router.post('/drafts/:id/finalize', finalizeDraft);
 router.get('/limitedAllCategory', limitedAllCategory);
 router.get('/category', listByCategory);
 router.get('/country', listByCountry);
+
+// Hosted Listings endpoints
+router.get('/me/all', verifyToken, getAllMyListings);
 
 // Wishlist endpoints
 router.get('/wishlist', verifyToken, getWishlist);

@@ -244,6 +244,29 @@ export default class BookingService {
     return await prisma.booking.findMany({
       where: { guestId: userId },
       orderBy: { createdAt: "desc" },
+      include: {
+        listing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+        serviceListing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+        experienceListing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+      },
     });
   }
 

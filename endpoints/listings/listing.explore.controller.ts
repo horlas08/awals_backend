@@ -344,3 +344,60 @@ export async function getListingDetails(req: Request, res: Response) {
     return response({ res, code: 500, success: false, msg: err?.message || 'server_error' });
   }
 }
+
+export async function getAllMyListings(req: Request & { user?: any }, res: Response) {
+  try {
+    const hostId = req.user?.id?.toString();
+    if (!hostId) return response({ res, code: 401, success: false, msg: 'Authorization required' });
+
+    // Fetch all listings for this host
+    const places = await db.listing.findMany({
+      where: { hostId, deleted: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const services = await db.serviceListing.findMany({
+      where: { hostId, deleted: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const experiences = await db.experienceListing.findMany({
+      where: { hostId, deleted: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const unifiedList = [
+      ...places.map((p: any) => ({
+        id: p.id,
+        title: p.name,
+        type: 'listing',
+        images: p.images,
+        status: 'ACTIVE',
+        createdAt: p.createdAt,
+      })),
+      ...services.map((s: any) => ({
+        id: s.id,
+        title: s.name,
+        type: 'service',
+        images: s.images,
+        status: s.status || 'ACTIVE',
+        createdAt: s.createdAt,
+      })),
+      ...experiences.map((e: any) => ({
+        id: e.id,
+        title: e.name,
+        type: 'experience',
+        images: e.images,
+        status: e.status || 'ACTIVE',
+        createdAt: e.createdAt,
+      }))
+    ];
+
+    // Sort combined list by newest
+    unifiedList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return response({ res, code: 200, success: true, msg: 'ok', data: unifiedList });
+  } catch (err: any) {
+    return response({ res, code: 500, success: false, msg: err?.message || 'server_error' });
+  }
+}
