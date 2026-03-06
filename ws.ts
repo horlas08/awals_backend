@@ -12,6 +12,7 @@ type Client = {
 };
 
 const clients = new Set<Client>();
+const userSockets = new Map<string | number, Set<WebSocket>>();
 
 export function attachWebsocket(server: HttpServer) {
     const wss = new WebSocketServer({ server });
@@ -28,12 +29,43 @@ export function attachWebsocket(server: HttpServer) {
                 if (msg.type === 'auth') {
                     try {
                         const payload = jwt.verify(msg.token, JWT_SECRET) as any;
-                        client.userId = payload?.id ?? payload?.sub ?? undefined;
+                        const userId = payload?.id ?? payload?.sub ?? undefined;
+
+                        if (userId) {
+                            client.userId = userId;
+
+                            // Map userId to socket
+                            if (!userSockets.has(userId)) {
+                                userSockets.set(userId, new Set());
+                            }
+                            userSockets.get(userId)!.add(socket);
+
+                            // Broadcast online status
+                            broadcastPresence(userId, 'online');
+
+                            // Update lastSeen in DB (async, non-blocking)
+                            prisma.user.update({
+                                where: { id: userId.toString() },
+                                data: { lastSeen: new Date() }
+                            }).catch(() => { });
+                        }
+
                         socket.send(JSON.stringify({ type: 'auth_ok' }));
                     } catch (err) {
                         socket.send(JSON.stringify({ type: 'auth_error', error: 'invalid token' }));
                         try { socket.close(); } catch (_) { }
                     }
+                    return;
+                }
+
+                if (msg.type === 'presence_request') {
+                    const requestedUserId = msg.userId;
+                    const isOnline = userSockets.has(requestedUserId);
+                    socket.send(JSON.stringify({
+                        type: 'presence',
+                        userId: requestedUserId,
+                        status: isOnline ? 'online' : 'offline'
+                    }));
                     return;
                 }
 
@@ -69,21 +101,41 @@ export function attachWebsocket(server: HttpServer) {
                 if (msg.type === 'message') {
                     if (!client.userId) return;
                     const bookingId = msg.bookingId as string | undefined;
+                    const recipientId = msg.recipientId as string | undefined;
                     const text = msg.text as string | undefined;
-                    if (!bookingId || !text) return;
+
+                    if (!text) return;
 
                     const payload = {
                         type: 'message',
-                        payload: { from: client.userId, bookingId, text, time: new Date().toISOString() },
+                        payload: {
+                            from: client.userId,
+                            recipientId,
+                            bookingId,
+                            text,
+                            time: new Date().toISOString()
+                        },
                     };
 
-                    for (const c of clients) {
-                        if (c.bookingId === bookingId) {
-                            try {
-                                c.ws.send(JSON.stringify(payload));
-                            } catch (e) {
-                                // ignore
+                    // Send to specific booking room if bookingId exists
+                    if (bookingId) {
+                        for (const c of clients) {
+                            if (c.bookingId === bookingId) {
+                                try {
+                                    c.ws.send(JSON.stringify(payload));
+                                } catch (e) {
+                                    // ignore
+                                }
                             }
+                        }
+                    }
+
+                    // Also always send to recipient's personal sockets for real-time inbox updates
+                    if (recipientId && userSockets.has(recipientId)) {
+                        for (const s of userSockets.get(recipientId)!) {
+                            try {
+                                s.send(JSON.stringify(payload));
+                            } catch (e) { }
                         }
                     }
                 }
@@ -93,9 +145,34 @@ export function attachWebsocket(server: HttpServer) {
         });
 
         socket.on('close', () => {
+            if (client.userId) {
+                const sockets = userSockets.get(client.userId);
+                if (sockets) {
+                    sockets.delete(socket);
+                    if (sockets.size === 0) {
+                        userSockets.delete(client.userId);
+                        broadcastPresence(client.userId, 'offline');
+
+                        // Update lastSeen in DB
+                        prisma.user.update({
+                            where: { id: client.userId.toString() },
+                            data: { lastSeen: new Date() }
+                        }).catch(() => { });
+                    }
+                }
+            }
             clients.delete(client);
         });
     });
+
+    function broadcastPresence(userId: string | number, status: 'online' | 'offline') {
+        const payload = JSON.stringify({ type: 'presence', userId, status });
+        for (const c of clients) {
+            try {
+                c.ws.send(payload);
+            } catch (e) { }
+        }
+    }
 
     console.log('WebSocket server attached');
 }

@@ -61,4 +61,80 @@ export class PaymentController {
             });
         }
     }
+
+    static async getMyTransactions(req: Request & { user?: any }, res: Response) {
+        try {
+            const limit = req.query.limit ? Number(req.query.limit) : undefined;
+            const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+            const opts: { limit?: number; cursor?: string } = {};
+            if (typeof limit === "number" && Number.isFinite(limit)) opts.limit = limit;
+            if (cursor) opts.cursor = cursor;
+
+            const data = await PaymentService.getMyTransactions(req.user.id, opts);
+
+            return response({
+                res,
+                success: true,
+                code: 200,
+                msg: "Transactions retrieved",
+                data,
+            });
+        } catch (error: any) {
+            return response({
+                res,
+                success: false,
+                code: 400,
+                msg: error.message,
+            });
+        }
+    }
+
+    static async listMyWithdrawals(req: Request & { user?: any }, res: Response) {
+        try {
+            const limit = req.query.limit ? Number(req.query.limit) : undefined;
+            const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+            const opts: { limit?: number; cursor?: string } = {};
+            if (typeof limit === "number" && Number.isFinite(limit)) opts.limit = limit;
+            if (cursor) opts.cursor = cursor;
+
+            const data = await PaymentService.listMyWithdrawals(req.user.id, opts);
+
+            return response({
+                res,
+                success: true,
+                code: 200,
+                msg: "Withdrawals retrieved",
+                data,
+            });
+        } catch (error: any) {
+            return response({
+                res,
+                success: false,
+                code: 400,
+                msg: error.message,
+            });
+        }
+    }
+
+    static async requestWithdrawal(req: Request & { user?: any }, res: Response) {
+        try {
+            const created = await PaymentService.requestWithdrawal(req.user.id, req.body);
+            return response({
+                res,
+                success: true,
+                code: 201,
+                msg: "Withdrawal requested",
+                data: created,
+            });
+        } catch (error: any) {
+            return response({
+                res,
+                success: false,
+                code: 400,
+                msg: error.message,
+            });
+        }
+    }
 }

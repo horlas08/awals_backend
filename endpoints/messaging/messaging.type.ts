@@ -5,6 +5,7 @@ export interface IMessage {
     fromUserId: string;
     toUserId: string;
     listingId?: string;
+    bookingId?: string;
     content: string;
     timestamp: Date;
 }

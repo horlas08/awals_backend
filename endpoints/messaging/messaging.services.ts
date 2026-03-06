@@ -12,6 +12,7 @@ export default class MessagingService {
     data: {
       toUserId: string;
       listingId?: string;
+      bookingId?: string;
       content: string;
     }
   ) {
@@ -22,9 +23,10 @@ export default class MessagingService {
       data: {
         fromUserId: userId as string,
         toUserId: data.toUserId,
-        listingId: data.listingId as string,
+        listingId: data.listingId as any,
+        bookingId: data.bookingId as any,
         content: data.content,
-      },
+      } as any,
     });
 
     return newMessage;
@@ -72,8 +74,8 @@ export default class MessagingService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        fromUser: { select: { id: true, name: true, picture: true, role: true } },
-        toUser: { select: { id: true, name: true, picture: true, role: true } },
+        fromUser: { select: { id: true, name: true, picture: true, role: true, lastSeen: true } },
+        toUser: { select: { id: true, name: true, picture: true, role: true, lastSeen: true } },
         listing: { select: { id: true, hostId: true } },
       },
     });
@@ -81,13 +83,29 @@ export default class MessagingService {
     const threadMap = new Map();
     for (const msg of messages) {
       const isFromMe = msg.fromUserId === userId;
-      const otherUser = isFromMe ? msg.toUser : msg.fromUser;
+      const otherUser = (isFromMe ? msg.toUser : msg.fromUser) as any;
 
       if (!threadMap.has(otherUser.id)) {
-        let context = 'Traveling';
-        if (msg.listing?.hostId === userId) {
+        let context = 'Conversation';
+        if ((msg as any).listing?.hostId === userId) {
           context = 'Hosting';
+        } else if ((msg as any).bookingId || (msg as any).listingId) {
+          context = 'Traveling';
         }
+
+        // Calculate unread count for this thread
+        // This is a bit inefficient for large inboxes, but simplified for now
+        const unreadCount = await prisma.message.count({
+          where: {
+            fromUserId: otherUser.id,
+            toUserId: userId,
+            isRead: false
+          }
+        });
+
+        const isOnline = otherUser.lastSeen
+          ? (new Date().getTime() - new Date(otherUser.lastSeen).getTime() < 120000) // 2 mins
+          : false;
 
         threadMap.set(otherUser.id, {
           userId: otherUser.id,
@@ -95,12 +113,28 @@ export default class MessagingService {
           picture: otherUser.picture,
           lastMessage: msg.content,
           date: msg.createdAt,
-          bookingId: msg.listingId, // Reusing for routing/UI later
+          bookingId: (msg as any).bookingId || (msg as any).listingId,
           context,
+          unreadCount,
+          isOnline
         });
       }
     }
 
     return Array.from(threadMap.values());
+  }
+
+  static async markAsRead(userId: string, recipientId: string) {
+    await prisma.message.updateMany({
+      where: {
+        fromUserId: recipientId,
+        toUserId: userId,
+        isRead: false
+      },
+      data: {
+        isRead: true
+      } as any
+    });
+    return { success: true };
   }
 }

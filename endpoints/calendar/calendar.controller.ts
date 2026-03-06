@@ -6,12 +6,12 @@ export const getConfigs = async (req: Request, res: Response) => {
         const { listingType, listingId } = req.params;
 
         // basic validation
-        if (!['listing', 'service', 'experience'].includes(listingType)) {
+        if (!['listing', 'service', 'experience'].includes(listingType as string)) {
             res.status(400).json({ error: "Invalid listing type. Must be 'listing', 'service', or 'experience'." });
             return;
         }
 
-        const configs = await calendarService.getListingConfigs(listingType!, listingId!);
+        const configs = await calendarService.getListingConfigs(listingType as string, listingId as string);
         res.json(configs);
     } catch (error: any) {
         console.error("Error fetching calendar configs:", error);
@@ -24,7 +24,7 @@ export const updateConfig = async (req: Request, res: Response) => {
         const { listingType, listingId } = req.params;
         const { date, isAvailable, price, minNights } = req.body;
 
-        if (!['listing', 'service', 'experience'].includes(listingType)) {
+        if (!['listing', 'service', 'experience'].includes(listingType as string)) {
             res.status(400).json({ error: "Invalid listing type." });
             return;
         }
@@ -35,8 +35,8 @@ export const updateConfig = async (req: Request, res: Response) => {
         }
 
         const config = await calendarService.upsertDateConfig(
-            listingType!,
-            listingId!,
+            listingType as string,
+            listingId as string,
             date,
             isAvailable,
             price,

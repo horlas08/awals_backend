@@ -37,6 +37,7 @@ export async function verifyToken(
 
     await prisma.token.update({ where: { id: t.id }, data: { lastUsedAt: new Date() } });
     (req as any).user = user;
+    (req as any).userId = user.id;
     return next();
   } catch (err) {
     return response({ msg: "Invalid token", code: 401, res, success: false });

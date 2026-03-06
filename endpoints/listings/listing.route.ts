@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { attachImagePath, createDraft, finalizeDraft, getDraft, listDrafts, updateDraft } from './listing.controller.js';
+import { attachImagePath, createDraft, finalizeDraft, getDraft, listDrafts, updateDraft, updateAllActionRequiredToUnverify } from './listing.controller.js';
 import { verifyToken } from '../auth/auth.middleware.js';
 import {
   createWishlistCategory,
@@ -33,12 +33,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-router.post('/drafts', createDraft);
-router.get('/drafts', listDrafts);
-router.get('/drafts/:id', getDraft);
-router.patch('/drafts/:id', updateDraft);
-router.post('/drafts/:id/images', upload.single('file'), attachImagePath);
-router.post('/drafts/:id/finalize', finalizeDraft);
+router.post('/drafts', verifyToken, createDraft);
+router.get('/drafts', verifyToken, listDrafts);
+router.get('/drafts/:id', verifyToken, getDraft);
+router.patch('/drafts/:id', verifyToken, updateDraft);
+router.post('/drafts/:id/images', verifyToken, upload.single('file'), attachImagePath);
+router.post('/drafts/:id/finalize', verifyToken, finalizeDraft);
 
 // Explore/Home endpoints
 router.get('/limitedAllCategory', limitedAllCategory);
@@ -47,6 +47,7 @@ router.get('/country', listByCountry);
 
 // Hosted Listings endpoints
 router.get('/me/all', verifyToken, getAllMyListings);
+router.post('/me/action-required-to-unverify', verifyToken, updateAllActionRequiredToUnverify);
 
 // Wishlist endpoints
 router.get('/wishlist', verifyToken, getWishlist);

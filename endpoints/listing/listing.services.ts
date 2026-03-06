@@ -117,17 +117,45 @@ export class ListingService {
     // DELETE LISTING
     // ------------------------------------------------------------
     static async deleteListing(res: Response, userId: string, listingId: string) {
-
-        const updated = await db.listing.updateMany({
+        const listing = await db.listing.findUnique({
             where: { id: listingId, hostId: userId },
-            data: { deleted: true },
         });
 
-        if (updated.count === 0)
+        if (!listing)
             return response({ msg: "Listing not found!", res, code: 404, success: false });
 
+        // Physical file deletion
+        const fs = await import("fs");
+        const path = await import("path");
+        const appDir = path.resolve();
+
+        const deleteFile = (publicPath: string) => {
+            if (!publicPath || publicPath.startsWith('http')) return;
+            const fullPath = path.join(appDir, publicPath);
+            if (fs.existsSync(fullPath)) {
+                try {
+                    fs.unlinkSync(fullPath);
+                } catch (e) {
+                    console.error('Failed to delete file:', fullPath, e);
+                }
+            }
+        };
+
+        const images = Array.isArray(listing.images) ? listing.images : [];
+        images.forEach((img: any) => deleteFile(img));
+
+        const draftData = listing.draftData as any;
+        if (draftData && Array.isArray(draftData.images)) {
+            draftData.images.forEach((img: any) => deleteFile(img));
+        }
+
+        // We can completely delete from DB to enforce strict cleanup as requested by user
+        await db.listing.delete({
+            where: { id: listingId, hostId: userId },
+        });
+
         return response({
-            msg: "Your listing deleted",
+            msg: "Your listing was permanently deleted",
             res,
             code: 201,
             success: true,

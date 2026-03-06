@@ -29,6 +29,9 @@ model User {
   availableBalance Float @default(0.0)
   totalWithdrawn   Float @default(0.0)
 
+  // Royal points
+  royalPointsBalance Int @default(0)
+
   // Payout fields
   payoutPaypalEmail      String?
   payoutBankName         String?
@@ -43,8 +46,17 @@ model User {
   pets         String?
   obsession    String?
 
+  // Residential Address fields
+  residentialCountry    String?
+  residentialStreet     String?
+  residentialCity       String?
+  residentialState      String?
+  residentialPostalCode String?
+  residentialApartment  String?
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  lastSeen     DateTime? @default(now())
 
   // Relations
   listings     Listing[]
@@ -53,6 +65,8 @@ model User {
   wishlistCategories WishlistCategory[]
   wishlist     WishlistItem[]
   bookings     Booking[] @relation("UserBookings")
+  transactions Transaction[]
+  withdrawals  Withdrawal[]
   messagesSent Message[] @relation("MessagesSent")
   messagesRecv Message[] @relation("MessagesReceived")
   reviewsGiven Review[]  @relation("ReviewsGiven")
@@ -63,7 +77,7 @@ model User {
 
 model Listing {
   id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  name               String
+  name               String?
   hostId             String   @db.ObjectId
   description        String?
   address            String?
@@ -85,7 +99,11 @@ model Listing {
   rules              String?
   cancellationPolicy String?
   picture            String?
+  bookingApprovalMode BookingApprovalMode @default(manual)
   deleted            Boolean  @default(false)
+  status             ListingStatus @default(pending)
+  draftData          Json?
+  discounts          Json?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -129,8 +147,53 @@ model WishlistCategory {
 model AppSettings {
   id                         String   @id @default(auto()) @map("_id") @db.ObjectId
   guestFavoriteMinWishlistCount Int   @default(5)
+
+  // Royal points / rewards
+  pointsPerDollar            Int      @default(0) // number of points equivalent to $1
+  bookingPoints              Int      @default(0) // fixed points awarded per successful booking
+
+  // Withdrawals
+  minimumWithdrawal          Float    @default(0)
+
+  // Commission
+  serviceCommissionPercent   Float    @default(0) // 10 means 10%
+
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+}
+
+model Transaction {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String           @db.ObjectId
+  bookingId  String?          @db.ObjectId
+
+  type       TransactionType
+  amount     Float            @default(0)
+  currency   String           @default("USD")
+  points     Int              @default(0)
+
+  // Optional linkage
+  counterpartyUserId String?  @db.ObjectId
+  note       String?
+  meta       Json?
+
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields: [userId], references: [id])
+}
+
+model Withdrawal {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String            @db.ObjectId
+  amount     Float
+  currency   String            @default("USD")
+  status     WithdrawalStatus  @default(pending)
+  method     String?
+  note       String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id])
 }
 
 model Booking {
@@ -159,14 +222,16 @@ model Message {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   fromUserId String   @db.ObjectId
   toUserId   String   @db.ObjectId
-  listingId  String   @db.ObjectId
+  listingId  String?  @db.ObjectId
+  bookingId  String?  @db.ObjectId
   content    String?
+  isRead     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   fromUser User    @relation("MessagesSent", fields: [fromUserId], references: [id])
   toUser   User    @relation("MessagesReceived", fields: [toUserId], references: [id])
-  listing  Listing @relation(fields: [listingId], references: [id])
+  listing  Listing? @relation(fields: [listingId], references: [id])
 }
 
 model Review {
@@ -212,7 +277,28 @@ enum AuthChannel {
 enum BookingStatus {
   pending
   confirmed
+  awaiting_approval
   cancelled
+}
+
+enum BookingApprovalMode {
+  manual
+  instant
+}
+
+enum TransactionType {
+  booking_payment
+  host_earning_pending
+  points_award
+  withdrawal_request
+  withdrawal_paid
+}
+
+enum WithdrawalStatus {
+  pending
+  approved
+  rejected
+  paid
 }
 
 model ServiceListing {
@@ -232,6 +318,7 @@ model ServiceListing {
   country             String?
   category            String?
   status              ListingStatus @default(pending)
+  discounts           Json?
   deleted             Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -259,6 +346,7 @@ model ExperienceListing {
   country             String?
   category            String?
   status              ListingStatus @default(pending)
+  discounts           Json?
   deleted             Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

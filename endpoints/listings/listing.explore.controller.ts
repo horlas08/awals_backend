@@ -372,8 +372,9 @@ export async function getAllMyListings(req: Request & { user?: any }, res: Respo
         title: p.name,
         type: 'listing',
         images: p.images,
-        status: 'ACTIVE',
+        status: p.status || 'ACTIVE',
         createdAt: p.createdAt,
+        data: p.draftData || {},
       })),
       ...services.map((s: any) => ({
         id: s.id,
@@ -382,6 +383,7 @@ export async function getAllMyListings(req: Request & { user?: any }, res: Respo
         images: s.images,
         status: s.status || 'ACTIVE',
         createdAt: s.createdAt,
+        data: {},
       })),
       ...experiences.map((e: any) => ({
         id: e.id,
@@ -390,6 +392,7 @@ export async function getAllMyListings(req: Request & { user?: any }, res: Respo
         images: e.images,
         status: e.status || 'ACTIVE',
         createdAt: e.createdAt,
+        data: {},
       }))
     ];
 

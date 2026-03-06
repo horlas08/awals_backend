@@ -6,9 +6,9 @@ const router = Router();
 
 router.post("/", verifyToken, BookingController.createBooking);
 
-router.get("/:id", BookingController.getBookingById);
-
 router.get("/all/me", verifyToken, BookingController.getUserBookings);
+
+router.get("/:id", BookingController.getBookingById);
 
 router.patch("/:id/cancel", BookingController.cancelBooking);
 

@@ -6,11 +6,12 @@ export default class MessagingController {
 
     static async sendMessage(req: Request, res: Response) {
         try {
-            const { toUserId, listingId, content } = req.body;
+            const { toUserId, listingId, bookingId, content } = req.body;
 
             const message = await MessagingService.sendMessage(req as Request & { userId: string }, {
                 toUserId,
                 listingId,
+                bookingId,
                 content
             });
 
@@ -65,6 +66,28 @@ export default class MessagingController {
                 res,
                 code: 200,
                 msg: 'Got inbox'
+            });
+        } catch (err: any) {
+            return response({
+                success: false,
+                msg: err.message,
+                res,
+                code: 400
+            });
+        }
+    }
+
+    static async markAsRead(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.id || (req as any).userId;
+            const recipientId = req.params.recipientId as string;
+            const result = await MessagingService.markAsRead(userId, recipientId);
+            return response({
+                success: true,
+                data: result,
+                res,
+                code: 200,
+                msg: 'Marked as read'
             });
         } catch (err: any) {
             return response({
