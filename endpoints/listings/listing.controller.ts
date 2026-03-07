@@ -10,7 +10,7 @@ function mapPayloadToListingData(payload: any) {
   if (payload.images && Array.isArray(payload.images)) data.images = payload.images;
   if (payload.weekdayPrice !== undefined) data.pricePerNight = String(payload.weekdayPrice);
   if (payload.weekendPrice !== undefined) data.weekendPrice = String(payload.weekendPrice);
-  
+
   // Handle status updates
   if (payload.status !== undefined) {
     const validStatuses = ['pending', 'action_required', 'completed', 'in_review', 'active', 'inactive'];
@@ -27,6 +27,8 @@ function mapPayloadToListingData(payload: any) {
 
     data.address = addrParts.join(', ');
     if (payload.location.country) data.country = payload.location.country;
+    if (payload.location.lat !== undefined) data.lat = Number(payload.location.lat);
+    if (payload.location.lng !== undefined) data.lng = Number(payload.location.lng);
   }
 
   if (payload.basic) {
@@ -169,7 +171,7 @@ export const finalizeDraft = async (req: Request & { user?: any }, res: Response
       draftData.residentialStreet &&
       draftData.residentialCity;
 
-    const newStatus = isResidentialComplete ? 'unverify' : 'action_required';
+    const newStatus = isResidentialComplete ? 'in_review' : 'action_required';
     const newData = { ...draftData, status: newStatus.toUpperCase() };
 
     // Update the Listing status
@@ -237,7 +239,7 @@ export const attachImagePath = async (req: Request & { user?: any }, res: Respon
   }
 };
 
-export const updateAllActionRequiredToUnverify = async (req: Request & { user?: any }, res: Response) => {
+export const updateAllActionRequiredToInReview = async (req: Request & { user?: any }, res: Response) => {
   try {
     const hostId = req.user?.id?.toString();
     if (!hostId) return res.status(401).json({ message: 'Authorization required' });
@@ -250,7 +252,7 @@ export const updateAllActionRequiredToUnverify = async (req: Request & { user?: 
         deleted: false,
       },
       data: {
-        status: 'unverify',
+        status: 'in_review',
       },
     });
 

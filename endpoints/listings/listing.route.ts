@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { attachImagePath, createDraft, finalizeDraft, getDraft, listDrafts, updateDraft, updateAllActionRequiredToUnverify } from './listing.controller.js';
+import { attachImagePath, createDraft, finalizeDraft, getDraft, listDrafts, updateDraft, updateAllActionRequiredToInReview } from './listing.controller.js';
 import { verifyToken } from '../auth/auth.middleware.js';
 import {
   createWishlistCategory,
@@ -47,7 +47,7 @@ router.get('/country', listByCountry);
 
 // Hosted Listings endpoints
 router.get('/me/all', verifyToken, getAllMyListings);
-router.post('/me/action-required-to-unverify', verifyToken, updateAllActionRequiredToUnverify);
+router.post('/me/action-required-to-in-review', verifyToken, updateAllActionRequiredToInReview);
 
 // Wishlist endpoints
 router.get('/wishlist', verifyToken, getWishlist);
