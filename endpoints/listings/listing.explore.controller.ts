@@ -378,21 +378,29 @@ export async function getAllMyListings(req: Request & { user?: any }, res: Respo
       })),
       ...services.map((s: any) => ({
         id: s.id,
-        title: s.name,
+        title: s.title,
         type: 'service',
-        images: s.images,
+        images: s.photos,
         status: s.status || 'ACTIVE',
         createdAt: s.createdAt,
-        data: {},
+        data: {
+          ...s,
+          city: s.city || s.location,
+          address: s.address || s.location,
+        },
       })),
       ...experiences.map((e: any) => ({
         id: e.id,
-        title: e.name,
+        title: e.title,
         type: 'experience',
-        images: e.images,
+        images: e.photos,
         status: e.status || 'ACTIVE',
         createdAt: e.createdAt,
-        data: {},
+        data: {
+          ...e,
+          city: e.city || e.location,
+          address: e.address || e.location,
+        },
       }))
     ];
 

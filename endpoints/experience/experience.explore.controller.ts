@@ -35,7 +35,12 @@ function withGuestFavorite(listings: any[], threshold: number) {
   return (listings || []).map((l: any) => {
     const count = l?._count?.wishlistedBy ?? 0;
     const isGuestFavorite = Number(count) >= threshold;
-    const out = { ...l, isGuestFavorite };
+    const out = {
+      ...l,
+      isGuestFavorite,
+      city: l.city || l.location,
+      address: l.address || l.location,
+    };
     delete (out as any)._count;
     return out;
   });

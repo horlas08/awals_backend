@@ -208,6 +208,8 @@ model Booking {
   endDate    DateTime
   totalPrice Int?
   status     BookingStatus @default(pending)
+  paymentMethod String?     // myfatoorah, paypal, points
+  bookingType String?       // manual, instant
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
@@ -277,8 +279,10 @@ enum AuthChannel {
 enum BookingStatus {
   pending
   confirmed
+  approved
   awaiting_approval
   cancelled
+  rejected
 }
 
 enum BookingApprovalMode {
@@ -318,6 +322,7 @@ model ServiceListing {
   country             String?
   category            String?
   status              ListingStatus @default(pending)
+  stepIndex           Int?
   discounts           Json?
   deleted             Boolean  @default(false)
   createdAt           DateTime @default(now())
@@ -346,6 +351,7 @@ model ExperienceListing {
   country             String?
   category            String?
   status              ListingStatus @default(pending)
+  stepIndex           Int?
   discounts           Json?
   deleted             Boolean  @default(false)
   createdAt           DateTime @default(now())

@@ -72,4 +72,88 @@ export default class BookingController {
             return response({ success: false, msg: err.message, res, code: 400 });
         }
     }
+
+    static async cancelBookingWithRefund(req: Request, res: Response) {
+        try {
+            const userId = (req as Request & { userId: string }).userId;
+            const { paymentMethod } = req.body;
+
+            const updated = await BookingService.cancelBookingWithRefund(
+                req.params.id as string,
+                userId,
+                paymentMethod
+            );
+
+            return response({
+                success: true,
+                msg: "Booking cancelled and refund processed",
+                data: { booking: updated },
+                res,
+                code: 200
+            });
+
+        } catch (err: any) {
+            return response({ success: false, msg: err.message, res, code: 400 });
+        }
+    }
+
+    static async getHostReservations(req: Request, res: Response) {
+        try {
+            const hostId = (req as Request & { userId: string }).userId;
+            const bookings = await BookingService.getHostReservations(hostId);
+
+            return response({
+                success: true,
+                data: { bookings },
+                res,
+                code: 200,
+                msg: 'Host reservations retrieved'
+            });
+
+        } catch (err: any) {
+            return response({ success: false, msg: err.message, res, code: 400 });
+        }
+    }
+
+    static async approveBooking(req: Request, res: Response) {
+        try {
+            const hostId = (req as Request & { userId: string }).userId;
+            const updated = await BookingService.approveBooking(
+                req.params.id as string,
+                hostId
+            );
+
+            return response({
+                success: true,
+                msg: "Booking approved successfully",
+                data: { booking: updated },
+                res,
+                code: 200
+            });
+
+        } catch (err: any) {
+            return response({ success: false, msg: err.message, res, code: 400 });
+        }
+    }
+
+    static async rejectBooking(req: Request, res: Response) {
+        try {
+            const hostId = (req as Request & { userId: string }).userId;
+            const updated = await BookingService.rejectBooking(
+                req.params.id as string,
+                hostId
+            );
+
+            return response({
+                success: true,
+                msg: "Booking rejected successfully",
+                data: { booking: updated },
+                res,
+                code: 200
+            });
+
+        } catch (err: any) {
+            return response({ success: false, msg: err.message, res, code: 400 });
+        }
+    }
 }

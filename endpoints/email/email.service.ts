@@ -126,5 +126,126 @@ export class EmailService {
       html: isAr ? htmlAr : htmlEn,
     });
   }
+
+  static async sendBookingCancellation(
+    email: string,
+    data: {
+      guestName: string;
+      listingName: string;
+      startDate: string;
+      endDate: string;
+      refundAmount: number;
+      refundMethod: string;
+    }
+  ) {
+    return transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Booking Cancelled - ${data.listingName}`,
+      html: `
+        <h2>Your booking has been cancelled</h2>
+        <p>Hi ${data.guestName},</p>
+        <p>Your booking has been successfully cancelled.</p>
+        <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+          <h3 style="margin:0 0 8px 0;">${data.listingName}</h3>
+          <p style="margin:4px 0;"><strong>Check-in:</strong> ${data.startDate}</p>
+          <p style="margin:4px 0;"><strong>Check-out:</strong> ${data.endDate}</p>
+          <p style="margin:4px 0;"><strong>Refund Amount:</strong> SAR ${data.refundAmount}</p>
+          <p style="margin:4px 0;"><strong>Refund Method:</strong> ${data.refundMethod}</p>
+        </div>
+        <p>Your refund will be processed within 5-7 business days.</p>
+      `,
+    });
+  }
+
+  static async sendHostBookingCancellation(
+    email: string,
+    data: {
+      hostName: string;
+      guestName: string;
+      listingName: string;
+      startDate: string;
+      endDate: string;
+    }
+  ) {
+    return transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Booking Cancelled - ${data.listingName}`,
+      html: `
+        <h2>A booking has been cancelled</h2>
+        <p>Hi ${data.hostName},</p>
+        <p>A guest has cancelled their booking for your listing.</p>
+        <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+          <h3 style="margin:0 0 8px 0;">${data.listingName}</h3>
+          <p style="margin:4px 0;"><strong>Guest:</strong> ${data.guestName}</p>
+          <p style="margin:4px 0;"><strong>Check-in:</strong> ${data.startDate}</p>
+          <p style="margin:4px 0;"><strong>Check-out:</strong> ${data.endDate}</p>
+        </div>
+        <p>The dates are now available for other guests to book.</p>
+      `,
+    });
+  }
+
+  static async sendBookingApproval(
+    email: string,
+    data: {
+      guestName: string;
+      listingName: string;
+      hostName: string;
+      startDate: string;
+      endDate: string;
+    }
+  ) {
+    return transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Booking Approved - ${data.listingName}`,
+      html: `
+        <h2>Your booking has been approved!</h2>
+        <p>Hi ${data.guestName},</p>
+        <p>Great news! ${data.hostName} has approved your booking request.</p>
+        <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+          <h3 style="margin:0 0 8px 0;">${data.listingName}</h3>
+          <p style="margin:4px 0;"><strong>Check-in:</strong> ${data.startDate}</p>
+          <p style="margin:4px 0;"><strong>Check-out:</strong> ${data.endDate}</p>
+          <p style="margin:4px 0;"><strong>Host:</strong> ${data.hostName}</p>
+        </div>
+        <p>You can now message your host directly in the app.</p>
+        <p>Have a great stay!</p>
+      `,
+    });
+  }
+
+  static async sendBookingRejection(
+    email: string,
+    data: {
+      guestName: string;
+      listingName: string;
+      hostName: string;
+      startDate: string;
+      endDate: string;
+      refundAmount: number;
+    }
+  ) {
+    return transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `Booking Request Declined - ${data.listingName}`,
+      html: `
+        <h2>Booking request declined</h2>
+        <p>Hi ${data.guestName},</p>
+        <p>Unfortunately, ${data.hostName} is unable to accommodate your booking request.</p>
+        <div style="background:#f5f5f5;padding:16px;border-radius:8px;margin:16px 0;">
+          <h3 style="margin:0 0 8px 0;">${data.listingName}</h3>
+          <p style="margin:4px 0;"><strong>Check-in:</strong> ${data.startDate}</p>
+          <p style="margin:4px 0;"><strong>Check-out:</strong> ${data.endDate}</p>
+          <p style="margin:4px 0;"><strong>Refund Amount:</strong> SAR ${data.refundAmount}</p>
+        </div>
+        <p>Your full refund will be processed within 5-7 business days.</p>
+        <p>We encourage you to explore other amazing listings on our platform!</p>
+      `,
+    });
+  }
 }
 

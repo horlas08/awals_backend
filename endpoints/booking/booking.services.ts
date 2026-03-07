@@ -2,6 +2,7 @@ import type { IBooking } from "./booking.type.js";
 import type { Request } from "express";
 import prisma from "../../prisma/client.js";
 import { EmailService } from "../email/email.service.js";
+import { RefundService } from "../payment/refund.service.js";
 
 export default class BookingService {
   private static async getAppSettings() {
@@ -74,6 +75,8 @@ export default class BookingService {
       totalPrice: number;
       guests?: number;
       paymentMethod?: string;
+      paymentId?: string; // MyFatoorah payment ID
+      transactionId?: string; // PayPal capture ID
       fxRate?: number;
       fxAmount?: number;
       fxCurrency?: string;
@@ -243,6 +246,8 @@ export default class BookingService {
           endDate: endDate,
           totalPrice: totalAmount,
           status: (shouldAwaitApproval ? 'awaiting_approval' : 'confirmed') as any,
+          paymentMethod: paymentMethod || 'myfatoorah',
+          bookingType: shouldAwaitApproval ? 'manual' : 'instant',
         },
       });
 
@@ -282,6 +287,9 @@ export default class BookingService {
               paymentMethod: isPointsPayment ? 'points' : 'cash',
               requiredPoints: isPointsPayment ? requiredPoints : null,
               pointsPerDollar,
+              // Store payment gateway transaction ID for refunds
+              paymentId: data.paymentId || null, // MyFatoorah payment ID
+              transactionId: data.transactionId || null, // PayPal capture ID
               ...(fxRate !== undefined ? { fxRate } : {}),
               ...(fxAmount !== undefined ? { fxAmount } : {}),
               ...(fxCurrency ? { fxCurrency } : {}),
@@ -452,6 +460,455 @@ export default class BookingService {
     });
 
     return booking;
+  }
+
+  // ---------------------------------------------------------------------
+  // CANCEL BOOKING WITH REFUND (within 24 hours)
+  // ---------------------------------------------------------------------
+  static async cancelBookingWithRefund(
+    bookingId: string,
+    userId: string,
+    paymentMethod?: string
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        listing: { include: { host: true } },
+        serviceListing: { include: { host: true } },
+        experienceListing: { include: { host: true } },
+        guest: true,
+      },
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    if (booking.guestId !== userId) {
+      throw new Error('Unauthorized: You can only cancel your own bookings');
+    }
+
+    if (booking.status === 'cancelled') {
+      throw new Error('Booking is already cancelled');
+    }
+
+    // Check if within 24 hours of creation
+    const now = new Date();
+    const createdAt = new Date(booking.createdAt);
+    const hoursSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+
+    if (hoursSinceCreation > 24) {
+      throw new Error('Cancellation period has expired. Bookings can only be cancelled within 24 hours of creation.');
+    }
+
+    const host = booking.listing?.host || booking.serviceListing?.host || booking.experienceListing?.host;
+    if (!host) {
+      throw new Error('Host not found');
+    }
+
+    const totalAmount = Number(booking.totalPrice ?? 0);
+    const settings = await this.getAppSettings();
+    const commissionPercent = typeof settings?.serviceCommissionPercent === 'number' ? settings.serviceCommissionPercent : 0;
+    const commissionRate = Math.max(0, Math.min(commissionPercent, 100)) / 100;
+    const hostEarning = Math.max(0, totalAmount * (1 - commissionRate));
+
+    const method = paymentMethod || booking.paymentMethod || 'myfatoorah';
+    const isPointsPayment = method === 'points';
+
+    // Find the original payment transaction to get the payment gateway transaction ID
+    const originalPaymentTx = await (prisma as any).transaction.findFirst({
+      where: {
+        bookingId,
+        userId,
+        type: 'booking_payment',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const paymentGatewayTxId = originalPaymentTx?.meta?.paymentId || originalPaymentTx?.meta?.transactionId;
+
+    // Process refund through payment gateway (if not points)
+    let refundResult: { success: boolean; refundId?: string; message: string } = {
+      success: true,
+      message: 'Refund processed',
+    };
+
+    if (!isPointsPayment && paymentGatewayTxId) {
+      refundResult = await RefundService.processRefund(
+        method,
+        paymentGatewayTxId,
+        totalAmount,
+        'SAR' // or get from booking
+      );
+
+      if (!refundResult.success) {
+        throw new Error(`Refund failed: ${refundResult.message}`);
+      }
+    }
+
+    // Process refund in transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      // Update booking status
+      const cancelled = await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: 'cancelled' },
+      });
+
+      // Reverse host pending balance
+      await tx.user.update({
+        where: { id: host.id },
+        data: {
+          pendingBalance: { decrement: hostEarning },
+        },
+      });
+
+      // Refund to guest (for points payment)
+      if (isPointsPayment) {
+        const pointsToRefund = Math.abs(originalPaymentTx?.points ?? 0);
+        if (pointsToRefund > 0) {
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              royalPointsBalance: { increment: pointsToRefund },
+            },
+          });
+        }
+      }
+
+      // Create refund transaction record
+      await (tx as any).transaction.create({
+        data: {
+          userId,
+          bookingId,
+          type: 'booking_payment',
+          amount: isPointsPayment ? 0 : totalAmount,
+          currency: 'SAR',
+          points: isPointsPayment ? Math.abs(originalPaymentTx?.points ?? 0) : 0,
+          counterpartyUserId: host.id,
+          note: `Refund for cancelled booking`,
+          meta: {
+            refundMethod: method,
+            originalAmount: totalAmount,
+            refundReason: 'Cancelled within 24 hours',
+            refundId: refundResult.refundId,
+            refundStatus: refundResult.success ? 'completed' : 'failed',
+          },
+        },
+      });
+
+      return cancelled;
+    });
+
+    // Send cancellation emails
+    try {
+      const formatDate = (d: Date) => d.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      });
+
+      const listingName = booking.listing?.name || booking.serviceListing?.title || booking.experienceListing?.title || 'Booking';
+
+      if (booking.guest.email) {
+        await EmailService.sendBookingCancellation(booking.guest.email, {
+          guestName: booking.guest.name,
+          listingName,
+          startDate: formatDate(booking.startDate),
+          endDate: formatDate(booking.endDate),
+          refundAmount: totalAmount,
+          refundMethod: method,
+        });
+      }
+
+      if (host.email) {
+        await EmailService.sendHostBookingCancellation(host.email, {
+          hostName: host.name,
+          guestName: booking.guest.name,
+          listingName,
+          startDate: formatDate(booking.startDate),
+          endDate: formatDate(booking.endDate),
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send cancellation emails:', emailError);
+    }
+
+    return {
+      ...updated,
+      refundInfo: {
+        refundId: refundResult.refundId,
+        message: refundResult.message,
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // GET HOST RESERVATIONS
+  // ---------------------------------------------------------------------
+  static async getHostReservations(hostId: string) {
+    const listings = await prisma.listing.findMany({
+      where: { hostId, deleted: false },
+      select: { id: true },
+    });
+
+    const serviceListings = await (prisma as any).serviceListing.findMany({
+      where: { hostId, deleted: false },
+      select: { id: true },
+    });
+
+    const experienceListings = await (prisma as any).experienceListing.findMany({
+      where: { hostId, deleted: false },
+      select: { id: true },
+    });
+
+    const listingIds = listings.map((l) => l.id);
+    const serviceListingIds = serviceListings.map((s: any) => s.id);
+    const experienceListingIds = experienceListings.map((e: any) => e.id);
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        OR: [
+          { listingId: { in: listingIds } },
+          { serviceListingId: { in: serviceListingIds } },
+          { experienceListingId: { in: experienceListingIds } },
+        ],
+        status: { not: 'cancelled' },
+      },
+      orderBy: { startDate: 'asc' },
+      include: {
+        listing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+        serviceListing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+        experienceListing: {
+          include: {
+            host: {
+              select: { id: true, name: true, picture: true, email: true },
+            },
+          },
+        },
+        guest: {
+          select: { id: true, name: true, picture: true, email: true },
+        },
+      },
+    });
+
+    return bookings;
+  }
+
+  // ---------------------------------------------------------------------
+  // APPROVE BOOKING (for manual approval)
+  // ---------------------------------------------------------------------
+  static async approveBooking(bookingId: string, hostId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        listing: { include: { host: true } },
+        serviceListing: { include: { host: true } },
+        experienceListing: { include: { host: true } },
+        guest: true,
+      },
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    const host = booking.listing?.host || booking.serviceListing?.host || booking.experienceListing?.host;
+    if (!host || host.id !== hostId) {
+      throw new Error('Unauthorized: Only the host can approve this booking');
+    }
+
+    if (booking.status !== 'awaiting_approval' && booking.status !== 'pending') {
+      throw new Error('Booking cannot be approved in its current status');
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'approved' },
+    });
+
+    // Send approval email to guest
+    try {
+      const formatDate = (d: Date) => d.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      });
+
+      const listingName = booking.listing?.name || booking.serviceListing?.title || booking.experienceListing?.title || 'Booking';
+
+      if (booking.guest.email) {
+        await EmailService.sendBookingApproval(booking.guest.email, {
+          guestName: booking.guest.name,
+          listingName,
+          hostName: host.name,
+          startDate: formatDate(booking.startDate),
+          endDate: formatDate(booking.endDate),
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send approval email:', emailError);
+    }
+
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------
+  // REJECT BOOKING (for manual approval)
+  // ---------------------------------------------------------------------
+  static async rejectBooking(bookingId: string, hostId: string) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        listing: { include: { host: true } },
+        serviceListing: { include: { host: true } },
+        experienceListing: { include: { host: true } },
+        guest: true,
+      },
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    const host = booking.listing?.host || booking.serviceListing?.host || booking.experienceListing?.host;
+    if (!host || host.id !== hostId) {
+      throw new Error('Unauthorized: Only the host can reject this booking');
+    }
+
+    if (booking.status !== 'awaiting_approval' && booking.status !== 'pending') {
+      throw new Error('Booking cannot be rejected in its current status');
+    }
+
+    const totalAmount = Number(booking.totalPrice ?? 0);
+    const settings = await this.getAppSettings();
+    const commissionPercent = typeof settings?.serviceCommissionPercent === 'number' ? settings.serviceCommissionPercent : 0;
+    const commissionRate = Math.max(0, Math.min(commissionPercent, 100)) / 100;
+    const hostEarning = Math.max(0, totalAmount * (1 - commissionRate));
+
+    const method = booking.paymentMethod || 'myfatoorah';
+    const isPointsPayment = method === 'points';
+
+    // Find the original payment transaction to get the payment gateway transaction ID
+    const originalPaymentTx = await (prisma as any).transaction.findFirst({
+      where: {
+        bookingId,
+        userId: booking.guestId,
+        type: 'booking_payment',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const paymentGatewayTxId = originalPaymentTx?.meta?.paymentId || originalPaymentTx?.meta?.transactionId;
+
+    // Process refund through payment gateway (if not points)
+    let refundResult: { success: boolean; refundId?: string; message: string } = {
+      success: true,
+      message: 'Refund processed',
+    };
+
+    if (!isPointsPayment && paymentGatewayTxId) {
+      refundResult = await RefundService.processRefund(
+        method,
+        paymentGatewayTxId,
+        totalAmount,
+        'SAR'
+      );
+
+      if (!refundResult.success) {
+        throw new Error(`Refund failed: ${refundResult.message}`);
+      }
+    }
+
+    // Process rejection and refund in transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      // Update booking status
+      const rejected = await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: 'rejected' },
+      });
+
+      // Reverse host pending balance
+      await tx.user.update({
+        where: { id: host.id },
+        data: {
+          pendingBalance: { decrement: hostEarning },
+        },
+      });
+
+      // Refund to guest (for points payment)
+      if (isPointsPayment) {
+        const pointsToRefund = Math.abs(originalPaymentTx?.points ?? 0);
+        if (pointsToRefund > 0) {
+          await tx.user.update({
+            where: { id: booking.guestId },
+            data: {
+              royalPointsBalance: { increment: pointsToRefund },
+            },
+          });
+        }
+      }
+
+      // Create refund transaction record
+      await (tx as any).transaction.create({
+        data: {
+          userId: booking.guestId,
+          bookingId,
+          type: 'booking_payment',
+          amount: isPointsPayment ? 0 : totalAmount,
+          currency: 'SAR',
+          points: isPointsPayment ? Math.abs(originalPaymentTx?.points ?? 0) : 0,
+          counterpartyUserId: host.id,
+          note: `Refund for rejected booking`,
+          meta: {
+            refundMethod: method,
+            originalAmount: totalAmount,
+            refundReason: 'Rejected by host',
+            refundId: refundResult.refundId,
+            refundStatus: refundResult.success ? 'completed' : 'failed',
+          },
+        },
+      });
+
+      return rejected;
+    });
+
+    // Send rejection email to guest
+    try {
+      const formatDate = (d: Date) => d.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      });
+
+      const listingName = booking.listing?.name || booking.serviceListing?.title || booking.experienceListing?.title || 'Booking';
+
+      if (booking.guest.email) {
+        await EmailService.sendBookingRejection(booking.guest.email, {
+          guestName: booking.guest.name,
+          listingName,
+          hostName: host.name,
+          startDate: formatDate(booking.startDate),
+          endDate: formatDate(booking.endDate),
+          refundAmount: totalAmount,
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send rejection email:', emailError);
+    }
+
+    return {
+      ...updated,
+      refundInfo: {
+        refundId: refundResult.refundId,
+        message: refundResult.message,
+      },
+    };
   }
 }
 

@@ -35,7 +35,12 @@ function withGuestFavorite(listings: any[], threshold: number) {
   return (listings || []).map((l: any) => {
     const count = l?._count?.wishlistedBy ?? 0;
     const isGuestFavorite = Number(count) >= threshold;
-    const out = { ...l, isGuestFavorite };
+    const out = {
+      ...l,
+      isGuestFavorite,
+      city: l.city || l.location,
+      address: l.address || l.location,
+    };
     delete (out as any)._count;
     return out;
   });
@@ -141,7 +146,7 @@ export async function toggleWishlist(req: Request & { user?: any }, res: Respons
 
     const listing = await db.serviceListing.findUnique({ where: { id: serviceListingId } });
     if (!listing || listing.deleted) return response({ res, code: 404, success: false, msg: 'Listing not found' });
-    
+
 
     const cat = await getOrCreateDefaultWishlistCategory(userId);
 
@@ -324,7 +329,7 @@ export async function getServiceListingDetails(req: Request, res: Response) {
       return response({ res, code: 404, success: false, msg: 'Listing not found' });
     }
 
-    
+
 
     const out = withGuestFavorite([listing], threshold)[0];
     return response({ res, code: 200, success: true, msg: 'ok', data: { listing: out } });
