@@ -149,7 +149,7 @@ model AppSettings {
   guestFavoriteMinWishlistCount Int   @default(5)
 
   // Royal points / rewards
-  pointsPerDollar            Int      @default(0) // number of points equivalent to $1
+  pointsPerSar            Int      @default(0) // number of points equivalent to 1 SAR
   bookingPoints              Int      @default(0) // fixed points awarded per successful booking
 
   // Withdrawals

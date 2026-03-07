@@ -20,8 +20,8 @@ export class PaymentService {
                 ? settings.minimumWithdrawal
                 : 0;
 
-        const pointsPerDollar =
-            typeof settings?.pointsPerDollar === "number" ? settings.pointsPerDollar : 0;
+        const pointsPerSar =
+            typeof settings?.pointsPerSar === "number" ? settings.pointsPerSar : 0;
 
         // Total balance is sum of pending and available in our context
         const totalBalance = user.pendingBalance + user.availableBalance;
@@ -36,7 +36,7 @@ export class PaymentService {
             totalEarned: totalEarned,
             royalPointsBalance: user.royalPointsBalance,
             minimumWithdrawal,
-            pointsPerDollar,
+            pointsPerSar,
         };
     }
 
@@ -52,9 +52,9 @@ export class PaymentService {
             take: limit,
             ...(opts?.cursor
                 ? {
-                      cursor: { id: opts.cursor },
-                      skip: 1,
-                  }
+                    cursor: { id: opts.cursor },
+                    skip: 1,
+                }
                 : {}),
         });
 
@@ -71,9 +71,9 @@ export class PaymentService {
             take: limit,
             ...(opts?.cursor
                 ? {
-                      cursor: { id: opts.cursor },
-                      skip: 1,
-                  }
+                    cursor: { id: opts.cursor },
+                    skip: 1,
+                }
                 : {}),
         });
 
@@ -100,7 +100,7 @@ export class PaymentService {
             throw new Error(`Minimum withdrawal is ${minimumWithdrawal}`);
         }
 
-        const currency = typeof data.currency === "string" && data.currency.trim() ? data.currency.trim() : "USD";
+        const currency = typeof data.currency === "string" && data.currency.trim() ? data.currency.trim() : "SAR";
 
         return await prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({

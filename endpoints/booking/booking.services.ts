@@ -188,8 +188,8 @@ export default class BookingService {
     const bookingPoints =
       typeof settings?.bookingPoints === 'number' ? settings.bookingPoints : 0;
 
-    const pointsPerDollar =
-      typeof settings?.pointsPerDollar === 'number' ? settings.pointsPerDollar : 0;
+    const pointsPerSar =
+      typeof settings?.pointsPerSar === 'number' ? settings.pointsPerSar : 0;
 
     const commissionRate = Math.max(0, Math.min(commissionPercent, 100)) / 100;
     const totalAmount = Number(data.totalPrice ?? 0);
@@ -198,7 +198,7 @@ export default class BookingService {
     const paymentMethod = typeof data.paymentMethod === 'string' ? data.paymentMethod.trim() : '';
     const isPointsPayment = paymentMethod === 'points';
     const requiredPoints = isPointsPayment
-      ? Math.max(0, Math.ceil(totalAmount * Math.max(0, pointsPerDollar)))
+      ? Math.max(0, Math.ceil(totalAmount * Math.max(0, pointsPerSar)))
       : 0;
 
     const fxRate = typeof data.fxRate === 'number' ? data.fxRate : undefined;
@@ -210,7 +210,7 @@ export default class BookingService {
 
     const booking = await prisma.$transaction(async (tx) => {
       if (isPointsPayment) {
-        if (pointsPerDollar <= 0) {
+        if (pointsPerSar <= 0) {
           throw new Error('Points payment is not configured');
         }
         const current = await (tx as any).user.findUnique({
@@ -274,7 +274,7 @@ export default class BookingService {
             bookingId: created.id,
             type: 'booking_payment',
             amount: isPointsPayment ? 0 : -Math.abs(totalAmount),
-            currency: 'USD',
+            currency: 'SAR',
             points: isPointsPayment ? -Math.abs(requiredPoints) : 0,
             counterpartyUserId: bookingTarget.host.id,
             note: `Booking payment for ${bookingTarget.title}`,
@@ -286,7 +286,7 @@ export default class BookingService {
               commissionPercent,
               paymentMethod: isPointsPayment ? 'points' : 'cash',
               requiredPoints: isPointsPayment ? requiredPoints : null,
-              pointsPerDollar,
+              pointsPerSar,
               // Store payment gateway transaction ID for refunds
               paymentId: data.paymentId || null, // MyFatoorah payment ID
               transactionId: data.transactionId || null, // PayPal capture ID
@@ -300,7 +300,7 @@ export default class BookingService {
             bookingId: created.id,
             type: 'host_earning_pending',
             amount: hostEarning,
-            currency: 'USD',
+            currency: 'SAR',
             points: 0,
             counterpartyUserId: userId,
             note: `Pending earning for ${bookingTarget.title}`,
@@ -318,12 +318,12 @@ export default class BookingService {
                 bookingId: created.id,
                 type: 'points_award',
                 amount: 0,
-                currency: 'USD',
+                currency: 'SAR',
                 points: bookingPoints,
                 counterpartyUserId: null,
                 note: `Points awarded for booking ${bookingTarget.title}`,
                 meta: {
-                  pointsPerDollar: settings?.pointsPerDollar ?? 0,
+                  pointsPerSar: settings?.pointsPerSar ?? 0,
                   bookingPoints,
                 },
               },
