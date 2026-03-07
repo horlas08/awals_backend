@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../../prisma/client.js';
 import { response } from '../../utils/req-res.js';
+import { mapCountryCode } from '../../utils/country-mapping.js';
 
 const db: any = prisma;
 
@@ -13,6 +14,17 @@ function parseLimit(v: unknown, fallback: number) {
 function normalizeString(v: unknown) {
   const s = (v ?? '').toString().trim();
   return s.length ? s : null;
+}
+
+function getDatesInRange(start: Date, end: Date) {
+  const dates: string[] = [];
+  let curr = new Date(start);
+  while (curr <= end) {
+    const iso = curr.toISOString().split('T')[0];
+    if (iso) dates.push(iso);
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
 }
 
 async function getOrCreateDefaultWishlistCategory(userId: string) {
@@ -48,18 +60,64 @@ export async function limitedAllCategory(req: Request, res: Response) {
     const threshold = await guestFavoriteThreshold();
 
     const rawCountries = normalizeString(req.query.countries);
-    const defaultCountries = ['saudi', 'uae', 'qatar', 'kuwait', 'bahrain', 'oman'];
-    const countries = (rawCountries ? rawCountries.split(',').map((s) => s.trim()).filter(Boolean) : defaultCountries);
+    let countries: string[] = [];
+    if (rawCountries) {
+      countries = rawCountries.split(',').map((s) => mapCountryCode(s.trim()) || s.trim()).filter(Boolean);
+    } else {
+      const distinct = await db.listing.findMany({
+        where: { deleted: false },
+        distinct: ['country'],
+        select: { country: true },
+        take: 6,
+      });
+      countries = distinct.map((d: any) => d.country);
+    }
+
+    const guests = req.query.guests ? Number(req.query.guests) : undefined;
 
     const results = await Promise.all(
       countries.map(async (country) => {
+        const where: any = { deleted: false, country };
+        if (guests) {
+          where.guests = { gte: guests };
+        }
+
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+
+        if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+          where.bookings = {
+            none: {
+              status: { not: 'cancelled' },
+              startDate: { lte: endDate },
+              endDate: { gte: startDate },
+            },
+          };
+          where.dateConfigs = {
+            none: {
+              date: { gte: startDate, lte: endDate },
+              isAvailable: false,
+            },
+          };
+        }
+
         const listings = await db.listing.findMany({
-          where: { deleted: false, country },
+          where,
           orderBy: { createdAt: 'desc' },
           take: limit,
           include: { _count: { select: { wishlistedBy: true } } },
         });
-        return { country, listings: withGuestFavorite(listings, threshold) };
+
+        let filtered = withGuestFavorite(listings, threshold);
+        if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+          const rangeStrings = getDatesInRange(startDate, endDate);
+          filtered = filtered.filter((l: any) => {
+            if (!l.unavailableDates || !Array.isArray(l.unavailableDates)) return true;
+            return !l.unavailableDates.some((ud: string) => rangeStrings.includes(ud));
+          });
+        }
+
+        return { country, listings: filtered };
       }),
     );
 
@@ -72,20 +130,44 @@ export async function limitedAllCategory(req: Request, res: Response) {
 export async function listByCategory(req: Request, res: Response) {
   try {
     const category = normalizeString(req.query.category);
-    if (!category) return response({ res, code: 400, success: false, msg: 'category is required' });
 
     const threshold = await guestFavoriteThreshold();
 
     const rawCountries = normalizeString(req.query.countries);
-    const country = normalizeString(req.query.country);
-    const defaultCountries = ['saudi', 'uae', 'qatar', 'kuwait', 'bahrain', 'oman'];
-    const countries = (rawCountries ? rawCountries.split(',').map((s) => s.trim()).filter(Boolean) : defaultCountries);
+    const rawCountry = normalizeString(req.query.country);
+    const country = rawCountry ? (mapCountryCode(rawCountry) || rawCountry) : null;
+    const guests = req.query.guests ? Number(req.query.guests) : undefined;
+    const countries = rawCountries ? rawCountries.split(',').map((s) => mapCountryCode(s.trim()) || s.trim()).filter(Boolean) : null;
 
     const limit = req.query.limit != null ? parseLimit(req.query.limit, 20) : undefined;
 
-    const where: any = { deleted: false, category };
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+
+    const where: any = { deleted: false };
+    if (category) where.category = category;
     if (country) where.country = country;
     else if (countries?.length) where.country = { in: countries };
+
+    if (guests) {
+      where.guests = { gte: guests };
+    }
+
+    if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      where.bookings = {
+        none: {
+          status: { not: 'cancelled' },
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      };
+      where.dateConfigs = {
+        none: {
+          date: { gte: startDate, lte: endDate },
+          isAvailable: false,
+        },
+      };
+    }
 
     const listings = await db.listing.findMany({
       where,
@@ -94,7 +176,16 @@ export async function listByCategory(req: Request, res: Response) {
       include: { _count: { select: { wishlistedBy: true } } },
     });
 
-    return response({ res, code: 200, success: true, msg: 'ok', data: { category, listings: withGuestFavorite(listings, threshold) } });
+    let filtered = withGuestFavorite(listings, threshold);
+    if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      const rangeStrings = getDatesInRange(startDate, endDate);
+      filtered = filtered.filter((l: any) => {
+        if (!l.unavailableDates || !Array.isArray(l.unavailableDates)) return true;
+        return !l.unavailableDates.some((ud: string) => rangeStrings.includes(ud));
+      });
+    }
+
+    return response({ res, code: 200, success: true, msg: 'ok', data: { category, listings: filtered } });
   } catch (err: any) {
     return response({ res, code: 500, success: false, msg: err?.message || 'server_error' });
   }
@@ -102,21 +193,56 @@ export async function listByCategory(req: Request, res: Response) {
 
 export async function listByCountry(req: Request, res: Response) {
   try {
-    const country = normalizeString(req.query.country);
-    if (!country) return response({ res, code: 400, success: false, msg: 'country is required' });
+    const rawCountry = normalizeString(req.query.country);
+    if (!rawCountry) return response({ res, code: 400, success: false, msg: 'country is required' });
+
+    const country = mapCountryCode(rawCountry) || rawCountry;
+    const guests = req.query.guests ? Number(req.query.guests) : undefined;
 
     const threshold = await guestFavoriteThreshold();
-
     const limit = req.query.limit != null ? parseLimit(req.query.limit, 50) : undefined;
 
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+
+    const where: any = { deleted: false, country };
+    if (guests) {
+      where.guests = { gte: guests };
+    }
+
+    if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      where.bookings = {
+        none: {
+          status: { not: 'cancelled' },
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      };
+      where.dateConfigs = {
+        none: {
+          date: { gte: startDate, lte: endDate },
+          isAvailable: false,
+        },
+      };
+    }
+
     const listings = await db.listing.findMany({
-      where: { deleted: false, country },
+      where,
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: { _count: { select: { wishlistedBy: true } } },
     });
 
-    return response({ res, code: 200, success: true, msg: 'ok', data: { country, listings: withGuestFavorite(listings, threshold) } });
+    let filtered = withGuestFavorite(listings, threshold);
+    if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      const rangeStrings = getDatesInRange(startDate, endDate);
+      filtered = filtered.filter((l: any) => {
+        if (!l.unavailableDates || !Array.isArray(l.unavailableDates)) return true;
+        return !l.unavailableDates.some((ud: string) => rangeStrings.includes(ud));
+      });
+    }
+
+    return response({ res, code: 200, success: true, msg: 'ok', data: { country, listings: filtered } });
   } catch (err: any) {
     return response({ res, code: 500, success: false, msg: err?.message || 'server_error' });
   }

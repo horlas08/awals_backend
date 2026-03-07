@@ -5,7 +5,7 @@ import { getConfigs, updateConfig } from "./calendar.controller.js";
 const route = Router();
 
 // Get calendar configs for a listing
-route.get("/config/:listingType/:listingId", verifyToken, getConfigs);
+route.get("/config/:listingType/:listingId", getConfigs);
 
 // Upsert a calendar config for a date
 route.post("/config/:listingType/:listingId", verifyToken, updateConfig);

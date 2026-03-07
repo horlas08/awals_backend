@@ -10,6 +10,14 @@ function mapPayloadToListingData(payload: any) {
   if (payload.images && Array.isArray(payload.images)) data.images = payload.images;
   if (payload.weekdayPrice !== undefined) data.pricePerNight = String(payload.weekdayPrice);
   if (payload.weekendPrice !== undefined) data.weekendPrice = String(payload.weekendPrice);
+  
+  // Handle status updates
+  if (payload.status !== undefined) {
+    const validStatuses = ['pending', 'action_required', 'completed', 'in_review', 'active', 'inactive'];
+    if (validStatuses.includes(payload.status)) {
+      data.status = payload.status;
+    }
+  }
 
   if (payload.location) {
     const addrParts = [];

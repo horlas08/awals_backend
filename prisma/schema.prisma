@@ -313,6 +313,8 @@ model ServiceListing {
   yearsOfExperience   Int?
   socialProfiles      String[]
   location            String?
+  lat                 Float?
+  lng                 Float?
   photos              String[]
   itinerary           Json[]   // [{title, description, duration, icon/image}]
   pricing             Json?    // {maxGuest, pricePerGuest, privateGroupMinimum}
@@ -342,6 +344,8 @@ model ExperienceListing {
   yearsOfExperience   Int?
   socialProfiles      String[]
   location            String?
+  lat                 Float?
+  lng                 Float?
   photos              String[]
   itinerary           Json[]
   pricing             Json?
