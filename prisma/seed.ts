@@ -155,6 +155,7 @@ async function main() {
             country: country.code,
             category,
             rating: 4.2 + (i % 5) * 0.1,
+            status: 'active',
             deleted: false,
           },
         });

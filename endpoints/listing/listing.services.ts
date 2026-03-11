@@ -167,7 +167,7 @@ export class ListingService {
     // GET ALL
     // ------------------------------------------------------------
     static async getAllListings() {
-        return db.listing.findMany();
+        return db.listing.findMany({ where: { status: 'active', deleted: false } });
     }
 
     // ------------------------------------------------------------
@@ -184,6 +184,7 @@ export class ListingService {
 
         const where: any = {
             deleted: false,
+            status: 'active',
         };
 
         if (filters.text) {

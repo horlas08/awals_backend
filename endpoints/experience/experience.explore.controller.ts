@@ -59,7 +59,7 @@ export async function limitedAllCategory(req: Request, res: Response) {
       countries = rawCountries.split(',').map((s) => mapCountryCode(s.trim()) || s.trim()).filter(Boolean);
     } else {
       const distinct = await db.experienceListing.findMany({
-        where: { deleted: false },
+        where: { deleted: false, status: 'active' },
         distinct: ['country'],
         select: { country: true },
         take: 6,
@@ -74,7 +74,7 @@ export async function limitedAllCategory(req: Request, res: Response) {
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
 
-        const where: any = { deleted: false, country };
+        const where: any = { deleted: false, status: 'active', country };
 
         if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
           where.bookings = {
@@ -135,7 +135,7 @@ export async function listByCategory(req: Request, res: Response) {
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
 
-    const where: any = { deleted: false };
+    const where: any = { deleted: false, status: 'active' };
     if (category) where.category = category;
     if (country) where.country = country;
     else if (countries?.length) where.country = { in: countries };
@@ -192,7 +192,7 @@ export async function listByCountry(req: Request, res: Response) {
     const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
 
-    const where: any = { deleted: false, country };
+    const where: any = { deleted: false, status: 'active', country };
 
     if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
       where.bookings = {
