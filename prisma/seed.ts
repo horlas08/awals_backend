@@ -3,6 +3,7 @@ import path from 'path';
 import { config } from 'dotenv';
 config({ path: path.resolve(process.cwd(), '.env') });
 import prisma from './client.js';
+import bcrypt from 'bcryptjs';
 
 const db: any = prisma;
 
@@ -79,6 +80,31 @@ async function main() {
       role: 'host',
       authChannel: 'email',
       picture: hostAvatarUploadPath,
+    },
+  });
+
+  const adminEmail = 'admin@awals.com';
+  const adminPassword = 'admin1234';
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
+
+  const adminUser = await db.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      name: 'Super Admin',
+      phone: '+10000000001',
+      verified: true,
+      role: 'admin',
+      passwordHash: adminPasswordHash
+    },
+    create: {
+      uid: 'super-admin',
+      name: 'Super Admin',
+      phone: '+10000000001',
+      email: adminEmail,
+      verified: true,
+      role: 'admin',
+      authChannel: 'email',
+      passwordHash: adminPasswordHash,
     },
   });
 

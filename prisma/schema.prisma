@@ -267,6 +267,7 @@ enum Role {
   guest
   host
   both
+  admin
 }
 
 enum AuthChannel {
