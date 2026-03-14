@@ -352,7 +352,7 @@ export const replyTicket = async (req: Request, res: Response) => {
                     from: process.env.SMTP_FROM ?? 'no-reply@awals.app',
                     to: ticket.user.email,
                     subject: `Re: ${ticket.subject}`,
-                    text: `Dear ${ticket.user.name},\n\n${message}\n\nBest regards,\nAwals Support Team`,
+                    text: `Dear ${ticket.user.name},\n\n${message}\n\nBest regards,\nLiwan Support Team`,
                 }).catch(console.error);
             }
         }
